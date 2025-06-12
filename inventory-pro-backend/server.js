@@ -11,20 +11,23 @@ const prisma = new PrismaClient({
 });
 const PORT = process.env.PORT || 3000;
 
-// Health check for Railway
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
+console.log('🚀 Starting Inventory Pro Server...');
+console.log('📊 Environment:', process.env.NODE_ENV || 'development');
+console.log('🔑 JWT_SECRET exists:', !!process.env.JWT_SECRET);
+console.log('🗄️ DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, /\.railway\.app$/] 
-    : ['http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:3000'],
+    ? [
+        process.env.FRONTEND_URL, 
+        /\.railway\.app$/, 
+        'https://gavin-morris-04.github.io',
+        /\.netlify\.app$/,
+        /\.github\.io$/,
+        'null'
+      ] 
+    : ['http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:3000', 'null'],
   credentials: true
 }));
 
@@ -36,13 +39,29 @@ app.use((req, res, next) => {
   next();
 });
 
-// Test endpoint
+// Health check for Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Root endpoint
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Inventory Pro API - Railway Deployment',
-    version: '1.0.0',
+    message: 'Inventory Pro API - Running Successfully!',
+    version: '2.0.0',
     environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      login: '/api/auth/login',
+      register: '/api/companies/register',
+      items: '/api/items',
+      activities: '/api/activities'
+    }
   });
 });
 
@@ -116,12 +135,14 @@ app.post('/api/auth/login', async (req, res) => {
     });
     
     if (!user) {
+      console.log('❌ User not found:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
     // Check password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.log('❌ Invalid password for:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
@@ -554,104 +575,6 @@ app.get('/api/users', authenticateToken, async (req, res) => {
   }
 });
 
-// Invite user
-app.post('/api/users/invite', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-    
-    const { email, name, role } = req.body;
-    
-    if (!email || !name || !role) {
-      return res.status(400).json({ error: 'Email, name, and role are required' });
-    }
-    
-    const normalizedEmail = email.toLowerCase().trim();
-    
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail }
-    });
-    
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
-    }
-    
-    // For demo purposes, create user with temporary password
-    // In production, you'd send an invitation email
-    const tempPassword = Math.random().toString(36).slice(-8);
-    const hashedPassword = await bcrypt.hash(tempPassword, 12);
-    
-    const newUser = await prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        name: name.trim(),
-        password: hashedPassword,
-        role: role,
-        company_id: req.user.company_id,
-        isActive: true
-      }
-    });
-    
-    console.log('✅ User invited:', newUser.email);
-    
-    // In production, you'd send an actual email here
-    res.json({
-      success: true,
-      message: 'Invitation sent successfully',
-      invitationId: newUser.id,
-      emailSent: true,
-      emailMethod: 'demo',
-      temporaryPassword: tempPassword // Remove this in production
-    });
-  } catch (error) {
-    console.error('❌ Invite user error:', error);
-    res.status(500).json({ error: 'Failed to invite user' });
-  }
-});
-
-// Delete user
-app.delete('/api/users/delete', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-    
-    const { userId } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-    
-    if (userId === req.user.id) {
-      return res.status(400).json({ error: 'Cannot delete yourself' });
-    }
-    
-    const userToDelete = await prisma.user.findFirst({
-      where: { 
-        id: userId,
-        company_id: req.user.company_id 
-      }
-    });
-    
-    if (!userToDelete) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    await prisma.user.delete({
-      where: { id: userId }
-    });
-    
-    console.log('✅ User deleted:', userToDelete.email);
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('❌ Delete user error:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
-  }
-});
-
 // COMPANY ENDPOINTS
 
 // Get company info
@@ -677,58 +600,6 @@ app.get('/api/companies/info', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Get company error:', error);
     res.status(500).json({ error: 'Failed to fetch company info' });
-  }
-});
-
-// ANALYTICS ENDPOINTS
-
-// Get analytics
-app.get('/api/analytics', authenticateToken, async (req, res) => {
-  try {
-    const [
-      totalItems,
-      totalQuantity,
-      lowStockItems,
-      outOfStockItems,
-      recentActivities
-    ] = await Promise.all([
-      prisma.item.count({
-        where: { company_id: req.user.company_id }
-      }),
-      prisma.item.aggregate({
-        where: { company_id: req.user.company_id },
-        _sum: { quantity: true }
-      }),
-      prisma.item.count({
-        where: { 
-          company_id: req.user.company_id,
-          quantity: { gt: 0, lte: 5 }
-        }
-      }),
-      prisma.item.count({
-        where: { 
-          company_id: req.user.company_id,
-          quantity: 0
-        }
-      }),
-      prisma.activity.count({
-        where: {
-          company_id: req.user.company_id,
-          created_at: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-        }
-      })
-    ]);
-    
-    res.json({
-      totalItems,
-      totalQuantity: totalQuantity._sum.quantity || 0,
-      lowStockItems,
-      outOfStockItems,
-      recentActivities
-    });
-  } catch (error) {
-    console.error('❌ Get analytics error:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
 
