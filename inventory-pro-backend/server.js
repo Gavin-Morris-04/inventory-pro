@@ -726,7 +726,9 @@ app.get('/api/users', authenticateToken, async (req, res) => {
   }
 });
 
-// Generate invite link
+// Replace the invite link generation endpoint in your server.js with this fixed version:
+
+// Generate invite link (FIXED VERSION)
 app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -739,12 +741,15 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Valid role is required' });
     }
 
-    // Generate invite token
+    // Generate proper invite token with company and user info
     const inviteToken = jwt.sign(
       { 
         companyId: req.user.company_id,
+        companyName: req.user.company.name,
+        companyCode: req.user.company.code,
         role: role,
         inviterId: req.user.id,
+        inviterName: req.user.name,
         type: 'invite'
       },
       process.env.JWT_SECRET,
@@ -755,18 +760,63 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
     const expirationDate = new Date();
     expirationDate.setDate(expirationDate.getDate() + 7);
 
-    console.log('✅ Invite link generated for role:', role);
+    // Create proper frontend URL - adjust this to match your actual frontend URL
+    const frontendUrl = process.env.FRONTEND_URL || 'https://gavin-morris-04.github.io';
+    const inviteUrl = `${frontendUrl}/invite?token=${inviteToken}`;
+
+    console.log('✅ Invite link generated:', inviteUrl);
 
     res.json({
       token: inviteToken,
       company_name: req.user.company.name,
       inviter_name: req.user.name,
       role: role,
-      expires_at: expirationDate.toISOString()
+      expires_at: expirationDate.toISOString(),
+      invite_url: inviteUrl  // Add the full URL
     });
   } catch (error) {
     console.error('❌ Generate invite error:', error);
     res.status(500).json({ error: 'Failed to generate invite link' });
+  }
+});
+
+// Add this new endpoint to validate invite tokens
+app.get('/api/users/validate-invite/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Verify invite token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid or expired invitation' });
+    }
+
+    if (decoded.type !== 'invite') {
+      return res.status(400).json({ error: 'Invalid invitation token' });
+    }
+
+    // Get company info
+    const company = await prisma.company.findUnique({
+      where: { id: decoded.companyId }
+    });
+
+    if (!company) {
+      return res.status(400).json({ error: 'Company not found' });
+    }
+
+    res.json({
+      valid: true,
+      company_name: company.name,
+      company_code: company.code,
+      inviter_name: decoded.inviterName,
+      role: decoded.role,
+      expires_at: new Date(decoded.exp * 1000).toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Validate invite error:', error);
+    res.status(500).json({ error: 'Failed to validate invitation' });
   }
 });
 
