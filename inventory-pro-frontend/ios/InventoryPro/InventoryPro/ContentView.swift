@@ -4,7 +4,7 @@ import Combine
 
 /// MARK: - Models
 struct User: Codable, Identifiable {
-    let id: String  // Changed from Int to String
+    let id: String
     let email: String
     let name: String
     let role: String
@@ -17,40 +17,46 @@ struct User: Codable, Identifiable {
 }
 
 struct Company: Codable {
-    let id: String  // Changed from Int to String
+    let id: String
     let name: String
     let code: String
     let subscriptionTier: String
     let maxUsers: Int?
+    var lowStockThreshold: Int? // New field for admin-configurable low stock threshold
     
     enum CodingKeys: String, CodingKey {
         case id, name, code
         case subscriptionTier = "subscription_tier"
         case maxUsers = "max_users"
+        case lowStockThreshold = "low_stock_threshold"
     }
 }
 
 struct Item: Codable, Identifiable {
-    let id: String  // Changed from Int to String
+    let id: String
     let name: String
     var quantity: Int
     let barcode: String
     let updatedAt: String?
+    var lowStockThreshold: Int? // Item-specific low stock threshold
     
     enum CodingKeys: String, CodingKey {
         case id, name, quantity, barcode
         case updatedAt = "updated_at"
+        case lowStockThreshold = "low_stock_threshold"
     }
 }
 
 struct Activity: Codable, Identifiable {
-    let id: String  // Changed from Int to String
+    let id: String
     let itemName: String
     let type: String
     let quantity: Int?
     let oldQuantity: Int?
     let userName: String?
     let createdAt: String?
+    let sessionTitle: String? // New field for batch operation titles
+    let itemId: String? // New field to link activities to specific items
     
     enum CodingKeys: String, CodingKey {
         case id, type, quantity
@@ -58,6 +64,24 @@ struct Activity: Codable, Identifiable {
         case oldQuantity = "old_quantity"
         case userName = "user_name"
         case createdAt = "created_at"
+        case sessionTitle = "session_title"
+        case itemId = "item_id"
+    }
+}
+
+struct InviteLink: Codable {
+    let token: String
+    let companyName: String
+    let inviterName: String
+    let role: String
+    let expiresAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case token
+        case companyName = "company_name"
+        case inviterName = "inviter_name"
+        case role
+        case expiresAt = "expires_at"
     }
 }
 
@@ -65,7 +89,7 @@ struct Activity: Codable, Identifiable {
 @MainActor
 class APIService: ObservableObject {
     static let shared = APIService()
-    private let baseURL = "https://inventory-pro-backend-production.up.railway.app"
+    private let baseURL = "https://shimmering-perfection-production.up.railway.app"
     
     @Published var isAuthenticated = false
     @Published var currentUser: User?
@@ -151,7 +175,6 @@ class APIService: ObservableObject {
             print("❌ Failed to decode type: \(T.self)")
             throw error
         }
-        
     }
     
     func login(email: String, password: String) async throws {
@@ -294,6 +317,16 @@ class APIService: ObservableObject {
         return try await makeRequest(endpoint: "/api/items", method: "PUT", body: body)
     }
     
+    func updateItemLowStockThreshold(id: String, threshold: Int) async throws -> Item {
+        struct UpdateThresholdRequest: Encodable {
+            let id: String
+            let lowStockThreshold: Int
+        }
+        
+        let body = try JSONEncoder().encode(UpdateThresholdRequest(id: id, lowStockThreshold: threshold))
+        return try await makeRequest(endpoint: "/api/items/threshold", method: "PUT", body: body)
+    }
+    
     func deleteItem(id: String) async throws {
         struct DeleteItemRequest: Encodable {
             let id: String
@@ -317,6 +350,26 @@ class APIService: ObservableObject {
         return try await makeRequest(endpoint: "/api/activities")
     }
     
+    func getItemActivities(itemId: String) async throws -> [Activity] {
+        return try await makeRequest(endpoint: "/api/activities/item/\(itemId)")
+    }
+    
+    func createBatchActivity(sessionTitle: String, items: [(itemId: String, quantityChange: Int)]) async throws {
+        struct BatchActivityRequest: Encodable {
+            let sessionTitle: String
+            let items: [BatchItem]
+            
+            struct BatchItem: Encodable {
+                let itemId: String
+                let quantityChange: Int
+            }
+        }
+        
+        let batchItems = items.map { BatchActivityRequest.BatchItem(itemId: $0.itemId, quantityChange: $0.quantityChange) }
+        let body = try JSONEncoder().encode(BatchActivityRequest(sessionTitle: sessionTitle, items: batchItems))
+        let _: [String: Bool] = try await makeRequest(endpoint: "/api/activities/batch", method: "POST", body: body)
+    }
+    
     // MARK: - Company
     func getCompanyInfo() async throws -> Company {
         struct CompanyResponse: Decodable {
@@ -326,81 +379,67 @@ class APIService: ObservableObject {
         return response.company
     }
     
+    func updateCompanyLowStockThreshold(_ threshold: Int) async throws -> Company {
+        struct UpdateThresholdRequest: Encodable {
+            let lowStockThreshold: Int
+        }
+        
+        let body = try JSONEncoder().encode(UpdateThresholdRequest(lowStockThreshold: threshold))
+        let response: Company = try await makeRequest(endpoint: "/api/companies/threshold", method: "PUT", body: body)
+        
+        // Update local company data
+        if let companyData = try? JSONEncoder().encode(response) {
+            UserDefaults.standard.set(companyData, forKey: "currentCompany")
+        }
+        self.currentCompany = response
+        
+        return response
+    }
+    
     // MARK: - Users
     func getUsers() async throws -> [User] {
         return try await makeRequest(endpoint: "/api/users")
     }
     
-    func inviteUser(email: String, name: String, role: String) async throws {
+    func generateInviteLink(role: String) async throws -> InviteLink {
         struct InviteRequest: Encodable {
-            let email: String
-            let name: String
             let role: String
         }
         
-        struct InviteResponse: Decodable {
-            let success: Bool
-            let message: String
-            let invitationId: String
-            let emailSent: Bool
-            let emailMethod: String?
-            let emailError: String?
-            let manualInvitationData: ManualInvitationData?
-            let invitationLink: String?
-        }
-        
-        struct ManualInvitationData: Decodable {
-            let to: String
-            let from: String
-            let link: String
-        }
-        
-        print("📧 Sending invitation to: \(email)")
-        
-        let body = try JSONEncoder().encode(InviteRequest(email: email, name: name, role: role))
-        let response: InviteResponse = try await makeRequest(endpoint: "/api/users/invite", method: "POST", body: body)
-        
-        print("✅ Invitation response: \(response.message)")
-        print("📧 Email sent: \(response.emailSent)")
-        
-        if response.emailSent {
-            print("📮 Email delivered via: \(response.emailMethod ?? "unknown")")
-        } else {
-            print("⚠️ Email failed to send: \(response.emailError ?? "unknown error")")
-            
-            // Handle manual invitation fallback
-            if let manualData = response.manualInvitationData {
-                print("📋 Manual invitation required:")
-                print("   To: \(manualData.to)")
-                print("   From: \(manualData.from)")
-                print("   Link: \(manualData.link)")
-            } else if let invitationLink = response.invitationLink {
-                print("📋 Share this link manually: \(invitationLink)")
-            }
-        }
+        let body = try JSONEncoder().encode(InviteRequest(role: role))
+        return try await makeRequest(endpoint: "/api/users/generate-invite", method: "POST", body: body)
     }
     
-    func testEmailConfiguration() async throws -> Bool {
-        struct TestEmailRequest: Encodable {
-            let testType: String = "email_config"
+    func acceptInvite(token: String, name: String, email: String, password: String) async throws {
+        struct AcceptInviteRequest: Encodable {
+            let token: String
+            let name: String
+            let email: String
+            let password: String
         }
         
-        struct TestEmailResponse: Decodable {
+        struct AcceptInviteResponse: Decodable {
             let success: Bool
-            let emailConfigured: Bool
-            let message: String
+            let user: User
+            let company: Company
+            let authToken: String
         }
         
-        do {
-            let body = try JSONEncoder().encode(TestEmailRequest())
-            let response: TestEmailResponse = try await makeRequest(endpoint: "/api/test/email", method: "POST", body: body)
-            
-            print("📧 Email config test: \(response.message)")
-            return response.emailConfigured
-        } catch {
-            print("❌ Email config test failed: \(error)")
-            return false
+        let body = try JSONEncoder().encode(AcceptInviteRequest(token: token, name: name, email: email, password: password))
+        let response: AcceptInviteResponse = try await makeRequest(endpoint: "/api/users/accept-invite", method: "POST", body: body)
+        
+        // Save auth data
+        UserDefaults.standard.set(response.authToken, forKey: "authToken")
+        if let userData = try? JSONEncoder().encode(response.user) {
+            UserDefaults.standard.set(userData, forKey: "currentUser")
         }
+        if let companyData = try? JSONEncoder().encode(response.company) {
+            UserDefaults.standard.set(companyData, forKey: "currentCompany")
+        }
+        
+        self.currentUser = response.user
+        self.currentCompany = response.company
+        self.isAuthenticated = true
     }
     
     func deleteUser(userId: String) async throws {
@@ -441,6 +480,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         func didScanCode(_ code: String) {
             parent.scannedCode = code
             parent.onCodeScanned(code)
+            parent.isPresented = false
         }
         
         func didCancel() {
@@ -463,14 +503,24 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         super.viewDidLoad()
         
         view.backgroundColor = UIColor.black
+        setupCaptureSession()
+        setupUI()
+    }
+    
+    private func setupCaptureSession() {
         captureSession = AVCaptureSession()
         
-        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else { return }
+        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else {
+            failed()
+            return
+        }
+        
         let videoInput: AVCaptureDeviceInput
         
         do {
             videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
         } catch {
+            failed()
             return
         }
         
@@ -487,7 +537,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
             captureSession.addOutput(metadataOutput)
             
             metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-            metadataOutput.metadataObjectTypes = [.ean8, .ean13, .pdf417, .code128, .qr]
+            metadataOutput.metadataObjectTypes = [.ean8, .ean13, .pdf417, .code128, .qr, .code39, .code93, .upce]
         } else {
             failed()
             return
@@ -497,7 +547,9 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         previewLayer.frame = view.layer.bounds
         previewLayer.videoGravity = .resizeAspectFill
         view.layer.addSublayer(previewLayer)
-        
+    }
+    
+    private func setupUI() {
         // Add cancel button
         let cancelButton = UIButton(type: .system)
         cancelButton.setTitle("Cancel", for: .normal)
@@ -510,35 +562,50 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         
         view.addSubview(cancelButton)
         
-        NSLayoutConstraint.activate([
-            cancelButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            cancelButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            cancelButton.widthAnchor.constraint(equalToConstant: 100),
-            cancelButton.heightAnchor.constraint(equalToConstant: 40)
-        ])
-        
         // Add scanning frame
         let scanningFrame = UIView()
-        scanningFrame.layer.borderColor = UIColor.systemPurple.cgColor
-        scanningFrame.layer.borderWidth = 2
-        scanningFrame.layer.cornerRadius = 10
+        scanningFrame.layer.borderColor = UIColor.systemGreen.cgColor
+        scanningFrame.layer.borderWidth = 3
+        scanningFrame.layer.cornerRadius = 15
+        scanningFrame.backgroundColor = UIColor.clear
         scanningFrame.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scanningFrame)
         
-        NSLayoutConstraint.activate([
-            scanningFrame.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            scanningFrame.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            scanningFrame.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8),
-            scanningFrame.heightAnchor.constraint(equalToConstant: 150)
-        ])
+        // Add instruction label
+        let instructionLabel = UILabel()
+        instructionLabel.text = "Point camera at barcode"
+        instructionLabel.textColor = .white
+        instructionLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        instructionLabel.textAlignment = .center
+        instructionLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        instructionLabel.layer.cornerRadius = 10
+        instructionLabel.layer.masksToBounds = true
+        instructionLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(instructionLabel)
         
-        DispatchQueue.global(qos: .background).async {
-            self.captureSession.startRunning()
-        }
+        NSLayoutConstraint.activate([
+            // Cancel button
+            cancelButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            cancelButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            cancelButton.widthAnchor.constraint(equalToConstant: 100),
+            cancelButton.heightAnchor.constraint(equalToConstant: 40),
+            
+            // Scanning frame
+            scanningFrame.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            scanningFrame.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -50),
+            scanningFrame.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8),
+            scanningFrame.heightAnchor.constraint(equalToConstant: 200),
+            
+            // Instruction label
+            instructionLabel.bottomAnchor.constraint(equalTo: scanningFrame.topAnchor, constant: -20),
+            instructionLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            instructionLabel.widthAnchor.constraint(equalToConstant: 200),
+            instructionLabel.heightAnchor.constraint(equalToConstant: 40)
+        ])
     }
     
     @objc func cancelTapped() {
-        captureSession.stopRunning()
+        captureSession?.stopRunning()
         delegate?.didCancel()
     }
     
@@ -576,8 +643,6 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
             AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
             delegate?.didScanCode(stringValue)
         }
-        
-        dismiss(animated: true)
     }
     
     override var prefersStatusBarHidden: Bool {
@@ -605,7 +670,7 @@ struct InventoryProApp: App {
 // MARK: - Content View
 struct ContentView: View {
     @EnvironmentObject var api: APIService
-    @State private var refreshID = UUID() // Add this
+    @State private var refreshID = UUID()
     
     var body: some View {
         Group {
@@ -615,9 +680,9 @@ struct ContentView: View {
                 AuthenticationView()
             }
         }
-        .id(refreshID) // Add this
+        .id(refreshID)
         .onChange(of: api.isAuthenticated) { _ in
-            refreshID = UUID() // Force view refresh
+            refreshID = UUID()
         }
     }
 }
@@ -714,7 +779,7 @@ struct LoginView: View {
                 
                 // Footer
                 VStack(spacing: 20) {
-                    Button("Start Free Trial") {
+                    Button("Create New Company") {
                         showingRegistration = true
                     }
                     .foregroundColor(.purple)
@@ -751,19 +816,11 @@ struct CompanyRegistrationView: View {
     @EnvironmentObject var api: APIService
     @Binding var showingRegistration: Bool
     @State private var companyName = ""
-    @State private var companySize = "small"
     @State private var adminName = ""
     @State private var adminEmail = ""
     @State private var adminPassword = ""
     @State private var isLoading = false
     @State private var errorMessage = ""
-    
-    let companySizes = [
-        ("small", "1-10 employees"),
-        ("medium", "11-50 employees"),
-        ("large", "51-200 employees"),
-        ("enterprise", "200+ employees")
-    ]
     
     var body: some View {
         ScrollView {
@@ -774,11 +831,11 @@ struct CompanyRegistrationView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.purple)
                     
-                    Text("Start Your Free Trial")
+                    Text("Create Your Company")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                     
-                    Text("Professional inventory management for your business")
+                    Text("Set up your inventory management system")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -794,23 +851,6 @@ struct CompanyRegistrationView: View {
                         
                         TextField("Acme Corporation", text: $companyName)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Company Size", systemImage: "person.3.fill")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Picker("Company Size", selection: $companySize) {
-                            ForEach(companySizes, id: \.0) { size in
-                                Text(size.1).tag(size.0)
-                            }
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        .frame(maxWidth: .infinity)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -842,32 +882,6 @@ struct CompanyRegistrationView: View {
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
                     
-                    // Features
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("✨ What's Included:")
-                            .font(.headline)
-                            .foregroundColor(.purple)
-                        
-                        ForEach([
-                            "30-day free trial - no credit card required",
-                            "Unlimited users and inventory items",
-                            "Real-time barcode scanning",
-                            "Multi-location support",
-                            "Analytics and reporting",
-                            "24/7 customer support"
-                        ], id: \.self) { feature in
-                            HStack(alignment: .top, spacing: 5) {
-                                Text("✓")
-                                    .foregroundColor(.green)
-                                Text(feature)
-                                    .font(.caption)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color.purple.opacity(0.1))
-                    .cornerRadius(10)
-                    
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
                             .font(.caption)
@@ -880,7 +894,7 @@ struct CompanyRegistrationView: View {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         } else {
-                            Text("Start Free Trial")
+                            Text("Create Company")
                                 .fontWeight(.semibold)
                         }
                     }
@@ -935,9 +949,9 @@ struct MainTabView: View {
                     Label("Items", systemImage: "list.bullet")
                 }
             
-            InventoryManagementView()
+            BatchOperationView()
                 .tabItem {
-                    Label("Manage", systemImage: "shippingbox")
+                    Label("Operations", systemImage: "shippingbox")
                 }
             
             ActivityLogView()
@@ -1004,6 +1018,23 @@ class InventoryManager: ObservableObject {
         return try await APIService.shared.findItemByBarcode(barcode)
     }
     
+    func getItemActivities(itemId: String) async throws -> [Activity] {
+        return try await APIService.shared.getItemActivities(itemId: itemId)
+    }
+    
+    func getDefaultLowStockThreshold() -> Int {
+        return APIService.shared.currentCompany?.lowStockThreshold ?? 5
+    }
+    
+    func isLowStock(_ item: Item) -> Bool {
+        let threshold = item.lowStockThreshold ?? getDefaultLowStockThreshold()
+        return item.quantity <= threshold && item.quantity > 0
+    }
+    
+    func isOutOfStock(_ item: Item) -> Bool {
+        return item.quantity <= 0
+    }
+    
     private func generateBarcode() -> String {
         let companyCode = APIService.shared.currentCompany?.code ?? "INV"
         let timestamp = Int(Date().timeIntervalSince1970)
@@ -1019,6 +1050,8 @@ struct ItemsListView: View {
     @State private var showingScanner = false
     @State private var showingBarcodeEntry = false
     @State private var scannedBarcode: String?
+    @State private var selectedItem: Item?
+    @State private var showingItemDetail = false
     
     var filteredItems: [Item] {
         let items = inventoryManager.items
@@ -1030,9 +1063,9 @@ struct ItemsListView: View {
         
         switch filterOption {
         case "lowStock":
-            return searchFiltered.filter { $0.quantity > 0 && $0.quantity <= 5 }
+            return searchFiltered.filter { inventoryManager.isLowStock($0) }
         case "outOfStock":
-            return searchFiltered.filter { $0.quantity == 0 }
+            return searchFiltered.filter { inventoryManager.isOutOfStock($0) }
         default:
             return searchFiltered
         }
@@ -1122,7 +1155,7 @@ struct ItemsListView: View {
                             .multilineTextAlignment(.center)
                         
                         if searchText.isEmpty {
-                            NavigationLink(destination: InventoryManagementView()) {
+                            NavigationLink(destination: AddItemView()) {
                                 Label("Add Your First Item", systemImage: "plus")
                                     .padding()
                                     .background(Color.purple)
@@ -1136,6 +1169,10 @@ struct ItemsListView: View {
                 } else {
                     List(filteredItems) { item in
                         ItemRowView(item: item)
+                            .onTapGesture {
+                                selectedItem = item
+                                showingItemDetail = true
+                            }
                     }
                     .listStyle(PlainListStyle())
                 }
@@ -1149,6 +1186,9 @@ struct ItemsListView: View {
             .sheet(isPresented: $showingBarcodeEntry) {
                 BarcodeEntryView(onBarcodeEntered: handleScannedBarcode)
             }
+            .sheet(item: $selectedItem) { item in
+                ItemDetailView(item: item)
+            }
         }
         .onAppear {
             Task {
@@ -1161,8 +1201,8 @@ struct ItemsListView: View {
         Task {
             do {
                 if let item = try await inventoryManager.findItemByBarcode(barcode) {
-                    // Navigate to item detail or show update dialog
-                    print("Found item: \(item.name)")
+                    selectedItem = item
+                    showingItemDetail = true
                 } else {
                     print("Item not found")
                 }
@@ -1175,16 +1215,17 @@ struct ItemsListView: View {
 
 struct ItemRowView: View {
     let item: Item
+    @EnvironmentObject var inventoryManager: InventoryManager
     
     var stockColor: Color {
-        if item.quantity <= 0 { return .red }
-        if item.quantity <= 5 { return .orange }
+        if inventoryManager.isOutOfStock(item) { return .red }
+        if inventoryManager.isLowStock(item) { return .orange }
         return .green
     }
     
     var stockStatus: String {
-        if item.quantity <= 0 { return "Out of Stock" }
-        if item.quantity <= 5 { return "Low Stock" }
+        if inventoryManager.isOutOfStock(item) { return "Out of Stock" }
+        if inventoryManager.isLowStock(item) { return "Low Stock" }
         return "In Stock"
     }
     
@@ -1309,24 +1350,78 @@ struct BarcodeEntryView: View {
     }
 }
 
-// MARK: - Inventory Management View
-struct InventoryManagementView: View {
+// MARK: - Batch Operation View (NEW)
+struct BatchOperationView: View {
     @EnvironmentObject var inventoryManager: InventoryManager
-    @State private var showingAddForm = false
+    @State private var sessionTitle = ""
+    @State private var selectedItems: [BatchItem] = []
     @State private var showingScanner = false
-    @State private var scannedBarcode: String?
-    @State private var selectedItem: Item?
-    @State private var showingItemDetail = false
+    @State private var showingItemPicker = false
+    @State private var showingAddItem = false
+    @State private var isProcessing = false
+    @State private var showingSuccessAlert = false
+    
+    struct BatchItem: Identifiable {
+        let id = UUID()
+        var item: Item
+        var quantityChange: Int = 0
+        var action: String = "add" // "add" or "remove"
+    }
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Action Buttons
-                HStack(spacing: 16) {
-                    Button(action: { showingAddForm = true }) {
+                // Header
+                VStack(spacing: 16) {
+                    Text("Inventory Operations")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Operation Title", systemImage: "doc.text")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        TextField("e.g., Weekly restocking, Damaged goods removal", text: $sessionTitle)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    .padding(.horizontal)
+                }
+                .padding()
+                .background(Color(.systemBackground))
+                
+                // Add Item Buttons
+                VStack(spacing: 12) {
+                    HStack(spacing: 16) {
+                        Button(action: { showingScanner = true }) {
+                            HStack {
+                                Image(systemName: "camera.fill")
+                                Text("Scan Item")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.purple)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                        
+                        Button(action: { showingItemPicker = true }) {
+                            HStack {
+                                Image(systemName: "list.bullet")
+                                Text("Browse Items")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                    }
+                    
+                    Button(action: { showingAddItem = true }) {
                         HStack {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Add Item")
+                            Image(systemName: "plus.circle")
+                            Text("Create New Item")
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -1334,203 +1429,284 @@ struct InventoryManagementView: View {
                         .foregroundColor(.white)
                         .cornerRadius(10)
                     }
-                    
-                    Button(action: { showingScanner = true }) {
-                        HStack {
-                            Image(systemName: "camera.fill")
-                            Text("Scan Item")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.purple)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                    }
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.bottom)
                 
-                // Items Grid
-                if inventoryManager.items.isEmpty {
+                // Selected Items List
+                if selectedItems.isEmpty {
                     Spacer()
                     VStack(spacing: 20) {
-                        Image(systemName: "shippingbox")
+                        Image(systemName: "tray")
                             .font(.system(size: 60))
                             .foregroundColor(.secondary)
                         
-                        Text("No items in inventory")
+                        Text("No items selected")
                             .font(.title2)
                             .fontWeight(.medium)
                         
-                        Text("Add your first item to get started")
+                        Text("Scan or browse items to add them to this operation")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
+                    .padding()
                     Spacer()
                 } else {
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                            ForEach(inventoryManager.items) { item in
-                                ItemCardView(item: item)
-                                    .onTapGesture {
-                                        selectedItem = item
-                                        showingItemDetail = true
-                                    }
+                    List {
+                        ForEach(selectedItems) { batchItem in
+                            BatchItemRowView(batchItem: batchItem) { updatedItem in
+                                if let index = selectedItems.firstIndex(where: { $0.id == updatedItem.id }) {
+                                    selectedItems[index] = updatedItem
+                                }
+                            } onRemove: {
+                                selectedItems.removeAll { $0.id == batchItem.id }
                             }
                         }
-                        .padding()
                     }
+                    .listStyle(PlainListStyle())
+                    
+                    // Process Button
+                    VStack {
+                        Button(action: processOperation) {
+                            if isProcessing {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            } else {
+                                Text("Process Operation (\(selectedItems.count) items)")
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(sessionTitle.isEmpty ? Color.gray : Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                        .disabled(sessionTitle.isEmpty || selectedItems.isEmpty || isProcessing)
+                    }
+                    .padding()
                 }
             }
-            .navigationTitle("Manage Inventory")
-            .sheet(isPresented: $showingAddForm) {
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showingScanner) {
+                BarcodeScannerView(scannedCode: .constant(nil), isPresented: $showingScanner) { barcode in
+                    handleScannedBarcode(barcode)
+                }
+            }
+            .sheet(isPresented: $showingItemPicker) {
+                ItemPickerView { item in
+                    addItemToBatch(item)
+                }
+            }
+            .sheet(isPresented: $showingAddItem) {
                 AddItemView()
             }
-            .sheet(isPresented: $showingScanner) {
-                BarcodeScannerView(scannedCode: $scannedBarcode, isPresented: $showingScanner) { barcode in
-                    Task {
-                        do {
-                            if let item = try await inventoryManager.findItemByBarcode(barcode) {
-                                selectedItem = item
-                                showingItemDetail = true
-                            }
-                        } catch {
-                            print("Error finding item: \(error)")
-                        }
-                    }
+            .alert("Operation Complete", isPresented: $showingSuccessAlert) {
+                Button("OK") {
+                    // Reset form
+                    sessionTitle = ""
+                    selectedItems = []
                 }
+            } message: {
+                Text("Successfully processed \(selectedItems.count) items")
             }
-            .sheet(item: $selectedItem) { item in
-                ItemDetailView(item: item)
+        }
+        .onAppear {
+            Task {
+                await inventoryManager.loadData()
             }
+        }
+    }
+    
+    private func handleScannedBarcode(_ barcode: String) {
+        Task {
+            do {
+                if let item = try await inventoryManager.findItemByBarcode(barcode) {
+                    addItemToBatch(item)
+                } else {
+                    print("Item not found")
+                }
+            } catch {
+                print("Error finding item: \(error)")
+            }
+        }
+    }
+    
+    private func addItemToBatch(_ item: Item) {
+        if !selectedItems.contains(where: { $0.item.id == item.id }) {
+            selectedItems.append(BatchItem(item: item))
+        }
+    }
+    
+    private func processOperation() {
+        guard !sessionTitle.isEmpty else { return }
+        
+        isProcessing = true
+        
+        Task {
+            do {
+                let operations = selectedItems.map { batchItem in
+                    let change = batchItem.action == "add" ? batchItem.quantityChange : -batchItem.quantityChange
+                    return (itemId: batchItem.item.id, quantityChange: change)
+                }
+                
+                try await APIService.shared.createBatchActivity(sessionTitle: sessionTitle, items: operations)
+                await inventoryManager.loadData()
+                
+                showingSuccessAlert = true
+            } catch {
+                print("Error processing operation: \(error)")
+            }
+            
+            isProcessing = false
         }
     }
 }
 
-struct ItemCardView: View {
-    let item: Item
-    @EnvironmentObject var inventoryManager: InventoryManager
-    @State private var isUpdating = false
+struct BatchItemRowView: View {
+    let batchItem: BatchOperationView.BatchItem
+    let onUpdate: (BatchOperationView.BatchItem) -> Void
+    let onRemove: () -> Void
     
-    var stockColor: Color {
-        if item.quantity <= 0 { return .red }
-        if item.quantity <= 5 { return .orange }
-        return .green
+    @State private var localQuantity: String
+    @State private var localAction: String
+    
+    init(batchItem: BatchOperationView.BatchItem, onUpdate: @escaping (BatchOperationView.BatchItem) -> Void, onRemove: @escaping () -> Void) {
+        self.batchItem = batchItem
+        self.onUpdate = onUpdate
+        self.onRemove = onRemove
+        self._localQuantity = State(initialValue: String(abs(batchItem.quantityChange)))
+        self._localAction = State(initialValue: batchItem.action)
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 12) {
             HStack {
-                Text(item.name)
+                Text(batchItem.item.name)
                     .font(.headline)
-                    .lineLimit(2)
                 
                 Spacer()
                 
-                Menu {
-                    Button(role: .destructive) {
-                        Task {
-                            try await inventoryManager.deleteItem(item)
-                        }
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Text("Quantity: \(item.quantity)")
-                .font(.subheadline)
-                .foregroundColor(stockColor)
-                .fontWeight(.medium)
-            
-            // Barcode
-            VStack(spacing: 4) {
-                Text(item.barcode)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                
-                // Barcode visual
-                GeometryReader { geometry in
-                    HStack(spacing: 1) {
-                        ForEach(0..<30, id: \.self) { _ in
-                            Rectangle()
-                                .fill(Color.black)
-                                .frame(width: geometry.size.width / 60)
-                        }
-                    }
-                }
-                .frame(height: 30)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.black, Color.black]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .mask(
-                        HStack(spacing: 1) {
-                            ForEach(0..<30, id: \.self) { i in
-                                Rectangle()
-                                    .fill(i % 2 == 0 ? Color.black : Color.clear)
-                            }
-                        }
-                    )
-                )
-            }
-            .padding(8)
-            .background(Color(.systemGray6))
-            .cornerRadius(6)
-            
-            // Quantity Controls
-            HStack {
-                Button(action: {
-                    updateQuantity(-1)
-                }) {
-                    Image(systemName: "minus.circle.fill")
+                Button(action: onRemove) {
+                    Image(systemName: "trash")
                         .foregroundColor(.red)
-                        .font(.title2)
                 }
-                .disabled(item.quantity <= 0 || isUpdating)
+            }
+            
+            HStack {
+                Text("Current: \(batchItem.item.quantity)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 
                 Spacer()
                 
-                Text("\(item.quantity)")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .frame(minWidth: 50)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
-                
-                Spacer()
-                
-                Button(action: {
-                    updateQuantity(1)
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.title2)
+                Text(batchItem.item.barcode)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            HStack(spacing: 12) {
+                Picker("Action", selection: $localAction) {
+                    Text("Add").tag("add")
+                    Text("Remove").tag("remove")
                 }
-                .disabled(isUpdating)
+                .pickerStyle(SegmentedPickerStyle())
+                .frame(width: 120)
+                
+                TextField("Qty", text: $localQuantity)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
+                    .frame(width: 80)
+                
+                Text(localAction == "add" ? "items" : "items")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(10)
+        .onChange(of: localQuantity) { _ in
+            updateBatchItem()
+        }
+        .onChange(of: localAction) { _ in
+            updateBatchItem()
+        }
     }
     
-    private func updateQuantity(_ change: Int) {
-        isUpdating = true
-        Task {
-            do {
-                try await inventoryManager.updateItemQuantity(item: item, change: change)
-            } catch {
-                print("Error updating quantity: \(error)")
+    private func updateBatchItem() {
+        var updated = batchItem
+        updated.quantityChange = Int(localQuantity) ?? 0
+        updated.action = localAction
+        onUpdate(updated)
+    }
+}
+
+struct ItemPickerView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var inventoryManager: InventoryManager
+    @State private var searchText = ""
+    let onItemSelected: (Item) -> Void
+    
+    var filteredItems: [Item] {
+        if searchText.isEmpty {
+            return inventoryManager.items
+        } else {
+            return inventoryManager.items.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText) ||
+                $0.barcode.localizedCaseInsensitiveContains(searchText)
             }
-            isUpdating = false
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                // Search
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Search items...", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                }
+                .padding(10)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(10)
+                .padding()
+                
+                // Items List
+                List(filteredItems) { item in
+                    Button(action: {
+                        onItemSelected(item)
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(item.name)
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                Text("\(item.quantity) in stock")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Text(item.barcode)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Select Item")
+            .navigationBarItems(
+                trailing: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
         }
     }
 }
@@ -1626,7 +1802,7 @@ struct AddItemView: View {
     }
 }
 
-// MARK: - Item Detail View
+// MARK: - Item Detail View (UPDATED)
 struct ItemDetailView: View {
     let item: Item
     @Environment(\.presentationMode) var presentationMode
@@ -1634,6 +1810,10 @@ struct ItemDetailView: View {
     @State private var adjustQuantity = 1
     @State private var adjustAction = "remove"
     @State private var isUpdating = false
+    @State private var showingActivityLog = false
+    @State private var itemActivities: [Activity] = []
+    @State private var lowStockThreshold: Double = 5
+    @State private var showingThresholdSettings = false
     
     var body: some View {
         NavigationView {
@@ -1650,9 +1830,33 @@ struct ItemDetailView: View {
                     
                     Text("Current Stock: \(item.quantity)")
                         .font(.title3)
-                        .foregroundColor(item.quantity <= 5 ? .orange : .green)
+                        .foregroundColor(inventoryManager.isLowStock(item) ? .orange : .green)
                 }
                 .padding()
+                
+                // Stock Status
+                HStack {
+                    Image(systemName: inventoryManager.isOutOfStock(item) ? "exclamationmark.triangle.fill" :
+                          inventoryManager.isLowStock(item) ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                        .foregroundColor(inventoryManager.isOutOfStock(item) ? .red :
+                                       inventoryManager.isLowStock(item) ? .orange : .green)
+                    
+                    Text(inventoryManager.isOutOfStock(item) ? "Out of Stock" :
+                         inventoryManager.isLowStock(item) ? "Low Stock" : "In Stock")
+                        .fontWeight(.medium)
+                    
+                    Spacer()
+                    
+                    if APIService.shared.currentUser?.role == "admin" {
+                        Button("Settings") {
+                            lowStockThreshold = Double(item.lowStockThreshold ?? inventoryManager.getDefaultLowStockThreshold())
+                            showingThresholdSettings = true
+                        }
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    }
+                }
+                .padding(.horizontal)
                 
                 // Barcode
                 VStack(spacing: 8) {
@@ -1693,6 +1897,34 @@ struct ItemDetailView: View {
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
+                .padding(.horizontal)
+                
+                // Action Buttons
+                HStack(spacing: 16) {
+                    Button(action: { showingActivityLog = true }) {
+                        VStack {
+                            Image(systemName: "clock.fill")
+                            Text("Activity Log")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                    
+                    Button(action: performQuickAdjustment) {
+                        VStack {
+                            Image(systemName: "plus.minus")
+                            Text("Quick Adjust")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                }
                 .padding(.horizontal)
                 
                 // Adjustment Controls
@@ -1756,6 +1988,31 @@ struct ItemDetailView: View {
                 }
             )
         }
+        .sheet(isPresented: $showingActivityLog) {
+            ItemActivityView(item: item, activities: itemActivities)
+        }
+        .sheet(isPresented: $showingThresholdSettings) {
+            LowStockThresholdView(
+                item: item,
+                threshold: $lowStockThreshold,
+                onSave: { newThreshold in
+                    Task {
+                        do {
+                            _ = try await APIService.shared.updateItemLowStockThreshold(
+                                id: item.id,
+                                threshold: Int(newThreshold)
+                            )
+                            await inventoryManager.loadData()
+                        } catch {
+                            print("Error updating threshold: \(error)")
+                        }
+                    }
+                }
+            )
+        }
+        .onAppear {
+            loadItemActivities()
+        }
     }
     
     private func performAdjustment() {
@@ -1770,6 +2027,139 @@ struct ItemDetailView: View {
                 print("Error updating item: \(error)")
             }
             isUpdating = false
+        }
+    }
+    
+    private func performQuickAdjustment() {
+        // Quick +1/-1 adjustment
+        Task {
+            do {
+                try await inventoryManager.updateItemQuantity(item: item, change: item.quantity > 0 ? -1 : 1)
+            } catch {
+                print("Error updating item: \(error)")
+            }
+        }
+    }
+    
+    private func loadItemActivities() {
+        Task {
+            do {
+                itemActivities = try await inventoryManager.getItemActivities(itemId: item.id)
+            } catch {
+                print("Error loading item activities: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - Item Activity View (NEW)
+struct ItemActivityView: View {
+    let item: Item
+    let activities: [Activity]
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        NavigationView {
+            Group {
+                if activities.isEmpty {
+                    VStack(spacing: 20) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+                        
+                        Text("No activity recorded")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Activity for \(item.name) will appear here")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                } else {
+                    List(activities) { activity in
+                        ActivityRowView(activity: activity)
+                    }
+                    .listStyle(PlainListStyle())
+                }
+            }
+            .navigationTitle("\(item.name) Activity")
+            .navigationBarItems(
+                trailing: Button("Done") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+    }
+}
+
+// MARK: - Low Stock Threshold View (NEW)
+struct LowStockThresholdView: View {
+    let item: Item
+    @Binding var threshold: Double
+    let onSave: (Double) -> Void
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Low Stock Alert")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.top)
+                
+                Text("Set the quantity threshold for \(item.name)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                VStack(spacing: 16) {
+                    HStack {
+                        Text("Alert when quantity is at or below:")
+                        Spacer()
+                        Text("\(Int(threshold))")
+                            .fontWeight(.bold)
+                    }
+                    
+                    Slider(value: $threshold, in: 0...50, step: 1)
+                        .accentColor(.orange)
+                    
+                    HStack {
+                        Text("0")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("50")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(10)
+                
+                Button(action: {
+                    onSave(threshold)
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Text("Save Setting")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
         }
     }
 }
@@ -1855,6 +2245,13 @@ struct ActivityRowView: View {
                 Spacer()
             }
             
+            if let sessionTitle = activity.sessionTitle {
+                Text("📋 \(sessionTitle)")
+                    .font(.subheadline)
+                    .foregroundColor(.purple)
+                    .fontWeight(.medium)
+            }
+            
             Text(activityDescription)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
@@ -1883,10 +2280,10 @@ struct ActivityRowView: View {
     }
 }
 
-// MARK: - Team Management View
+// MARK: - Team Management View (UPDATED)
 struct TeamManagementView: View {
     @EnvironmentObject var inventoryManager: InventoryManager
-    @State private var showingInviteUser = false
+    @State private var showingInviteGenerator = false
     
     var body: some View {
         NavigationView {
@@ -1902,8 +2299,8 @@ struct TeamManagementView: View {
                             .fontWeight(.medium)
                             .foregroundColor(.secondary)
                         
-                        Button(action: { showingInviteUser = true }) {
-                            Label("Invite User", systemImage: "plus")
+                        Button(action: { showingInviteGenerator = true }) {
+                            Label("Generate Invite Link", systemImage: "link")
                                 .padding()
                                 .background(Color.purple)
                                 .foregroundColor(.white)
@@ -1919,12 +2316,12 @@ struct TeamManagementView: View {
             }
             .navigationTitle("Team Management")
             .navigationBarItems(
-                trailing: Button(action: { showingInviteUser = true }) {
-                    Image(systemName: "plus")
+                trailing: Button(action: { showingInviteGenerator = true }) {
+                    Image(systemName: "link")
                 }
             )
-            .sheet(isPresented: $showingInviteUser) {
-                InviteUserView()
+            .sheet(isPresented: $showingInviteGenerator) {
+                InviteLinkGeneratorView()
             }
         }
         .onAppear {
@@ -1990,237 +2387,218 @@ struct UserRowView: View {
     }
 }
 
-    // MARK: - Enhanced InviteUserView with Email Status
-    // Replace your existing InviteUserView with this enhanced version
-
-    // MARK: - REPLACE your existing InviteUserView with this fixed version
-
-    struct InviteUserView: View {
-        @Environment(\.presentationMode) var presentationMode
-        @EnvironmentObject var inventoryManager: InventoryManager
-        @State private var name = ""
-        @State private var email = ""
-        @State private var role = "user"
-        @State private var isLoading = false
-        @State private var errorMessage = ""
-        @State private var successMessage = ""
-        @State private var showEmailStatus = false
-        @State private var emailSent = false
-        @State private var manualInviteLink: String? = nil
-        @State private var emailError: String? = nil
-        @State private var emailConfigured = true
-        
-        var body: some View {
-            NavigationView {
-                Form {
-                    // User Details Section
-                    Section(header: Text("User Details")) {
-                        TextField("Full Name", text: $name)
-                            .disabled(isLoading)
-                        
-                        TextField("Email Address", text: $email)
-                            .keyboardType(.emailAddress)
-                            .autocapitalization(.none)
-                            .disabled(isLoading)
-                        
-                        Picker("Role", selection: $role) {
-                            Text("User").tag("user")
-                            Text("Administrator").tag("admin")
-                        }
-                        .disabled(isLoading)
-                    }
+// MARK: - Invite Link Generator View (NEW)
+struct InviteLinkGeneratorView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var inventoryManager: InventoryManager
+    @State private var selectedRole = "user"
+    @State private var isGenerating = false
+    @State private var generatedLink: String?
+    @State private var inviteDetails: InviteLink?
+    @State private var showingCopyConfirmation = false
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 12) {
+                    Image(systemName: "link.circle.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.purple)
                     
-                    // Email Status Section
-                    if showEmailStatus {
-                        Section(header: Text("Invitation Status")) {
-                            if emailSent {
+                    Text("Generate Invite Link")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("Create a secure invitation link that you can share with new team members")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top)
+                
+                // Role Selection
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Select Role")
+                        .font(.headline)
+                    
+                    VStack(spacing: 8) {
+                        HStack {
+                            Button(action: { selectedRole = "user" }) {
                                 HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                    Image(systemName: selectedRole == "user" ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(selectedRole == "user" ? .purple : .secondary)
+                                    
                                     VStack(alignment: .leading) {
-                                        Text("Email invitation sent successfully!")
-                                            .foregroundColor(.green)
-                                            .font(.headline)
-                                        Text("The user will receive an email from your address with instructions to join.")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .padding(.vertical, 4)
-                            } else {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(.orange)
-                                        Text("Email could not be sent")
-                                            .foregroundColor(.orange)
-                                            .font(.headline)
-                                    }
-                                    
-                                    if let error = emailError {
-                                        Text("Error: \(error)")
+                                        Text("User")
+                                            .fontWeight(.medium)
+                                        Text("Can view and manage inventory")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     
-                                    if let link = manualInviteLink {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Please share this invitation manually:")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                            
-                                            Text(link)
-                                                .font(.caption)
-                                                .foregroundColor(.blue)
-                                                .textSelection(.enabled)
-                                                .padding(8)
-                                                .background(Color.blue.opacity(0.1))
-                                                .cornerRadius(6)
-                                            
-                                            Button("Copy Link") {
-                                                UIPasteboard.general.string = link
-                                            }
-                                            .font(.caption)
-                                            .foregroundColor(.blue)
-                                        }
-                                    }
+                                    Spacer()
                                 }
                             }
+                            .foregroundColor(.primary)
                         }
-                    }
-                    
-                    // Error/Success Messages
-                    if !errorMessage.isEmpty {
-                        Section {
-                            Text(errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                        }
-                    }
-                    
-                    if !successMessage.isEmpty {
-                        Section {
-                            Text(successMessage)
-                                .foregroundColor(.green)
-                                .font(.caption)
-                        }
-                    }
-                    
-                    // Send Invitation Button
-                    Section {
-                        Button(action: inviteUser) {
-                            if isLoading {
-                                HStack {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                    Text("Sending Invitation...")
-                                }
-                            } else {
-                                Text("Send Invitation")
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .disabled(name.isEmpty || email.isEmpty || isLoading)
-                        .foregroundColor(name.isEmpty || email.isEmpty ? .secondary : .white)
-                        .listRowBackground(name.isEmpty || email.isEmpty ? Color.secondary.opacity(0.3) : Color.purple)
-                    }
-                    
-                    // Footer Information
-                    Section(footer: Text(emailConfigured ?
-                        "An invitation email will be sent from your email address to the new user." :
-                        "Email service is not configured. You'll receive a link to share manually.")) {
-                        EmptyView()
-                    }
-                }
-                .navigationTitle("Invite User")
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationBarItems(
-                    leading: Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                )
-            }
-            .onAppear {
-                checkEmailConfiguration()
-            }
-        }
-        
-        private func inviteUser() {
-            guard !email.isEmpty && !name.isEmpty else {
-                errorMessage = "Please fill in all fields"
-                return
-            }
-            
-            isLoading = true
-            errorMessage = ""
-            successMessage = ""
-            showEmailStatus = false
-            manualInviteLink = nil
-            emailError = nil
-            
-            Task {
-                do {
-                    print("📧 Attempting to invite user...")
-                    try await APIService.shared.inviteUser(
-                        email: email,
-                        name: name,
-                        role: role
-                    )
-                    
-                    await MainActor.run {
-                        successMessage = "Invitation sent successfully!"
-                        showEmailStatus = true
-                        emailSent = true
-                        isLoading = false
+                        .padding()
+                        .background(selectedRole == "user" ? Color.purple.opacity(0.1) : Color(.secondarySystemBackground))
+                        .cornerRadius(10)
                         
-                        // Auto-dismiss after success
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            presentationMode.wrappedValue.dismiss()
+                        HStack {
+                            Button(action: { selectedRole = "admin" }) {
+                                HStack {
+                                    Image(systemName: selectedRole == "admin" ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(selectedRole == "admin" ? .purple : .secondary)
+                                    
+                                    VStack(alignment: .leading) {
+                                        Text("Administrator")
+                                            .fontWeight(.medium)
+                                        Text("Full access including team management")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                            }
+                            .foregroundColor(.primary)
                         }
-                    }
-                    
-                    // Reload users list
-                    await inventoryManager.loadData()
-                    
-                } catch {
-                    print("❌ Failed to invite user: \(error)")
-                    
-                    await MainActor.run {
-                        // Parse different types of errors
-                        if error.localizedDescription.contains("email") {
-                            showEmailStatus = true
-                            emailSent = false
-                            emailError = error.localizedDescription
-                            manualInviteLink = "https://your-app.com/accept-invitation?token=example"
-                            successMessage = "Invitation created but email failed"
-                        } else {
-                            errorMessage = "Failed to invite user: \(error.localizedDescription)"
-                        }
-                        isLoading = false
+                        .padding()
+                        .background(selectedRole == "admin" ? Color.purple.opacity(0.1) : Color(.secondarySystemBackground))
+                        .cornerRadius(10)
                     }
                 }
+                .padding(.horizontal)
+                
+                // Generated Link Section
+                if let link = generatedLink, let details = inviteDetails {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Invitation Ready!")
+                            .font(.headline)
+                            .foregroundColor(.green)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Role: \(details.role == "admin" ? "Administrator" : "User")")
+                                .font(.subheadline)
+                            
+                            Text("Expires: \(formatDate(details.expiresAt))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                        
+                        Text("Share this link:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text(link)
+                            .font(.caption)
+                            .padding()
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(8)
+                            .textSelection(.enabled)
+                        
+                        Button(action: {
+                            UIPasteboard.general.string = link
+                            showingCopyConfirmation = true
+                        }) {
+                            HStack {
+                                Image(systemName: "doc.on.doc")
+                                Text("Copy Link")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.purple)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                    }
+                    .padding(.horizontal)
+                } else {
+                    // Generate Button
+                    Button(action: generateInviteLink) {
+                        if isGenerating {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Generating...")
+                            }
+                        } else {
+                            Text("Generate Invite Link")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.purple)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .disabled(isGenerating)
+                    .padding(.horizontal)
+                }
+                
+                Spacer()
             }
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                },
+                trailing: generatedLink != nil ? Button("Done") {
+                    presentationMode.wrappedValue.dismiss()
+                } : nil
+            )
         }
-
+        .alert("Link Copied!", isPresented: $showingCopyConfirmation) {
+            Button("OK") {}
+        } message: {
+            Text("The invitation link has been copied to your clipboard")
+        }
+    }
+    
+    private func generateInviteLink() {
+        isGenerating = true
         
-
-        // Make sure your APIService class has a closing brace }
-        // The error suggests there might be a missing closing brace
-        
-        private func checkEmailConfiguration() {
-            Task {
-                do {
-                    emailConfigured = try await APIService.shared.testEmailConfiguration()
-                } catch {
-                    emailConfigured = false
+        Task {
+            do {
+                let inviteLink = try await APIService.shared.generateInviteLink(role: selectedRole)
+                
+                await MainActor.run {
+                    self.inviteDetails = inviteLink
+                    self.generatedLink = "https://your-app.com/invite/\(inviteLink.token)"
+                    self.isGenerating = false
+                }
+            } catch {
+                print("Error generating invite link: \(error)")
+                await MainActor.run {
+                    self.isGenerating = false
                 }
             }
         }
     }
-// MARK: - Settings View
+    
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .medium
+            displayFormatter.timeStyle = .short
+            return displayFormatter.string(from: date)
+        }
+        
+        return dateString
+    }
+}
+
+// MARK: - Settings View (UPDATED)
 struct SettingsView: View {
     @EnvironmentObject var api: APIService
     @State private var showingLogoutAlert = false
+    @State private var showingLowStockSettings = false
+    @State private var defaultLowStockThreshold: Double = 5
     
     var body: some View {
         NavigationView {
@@ -2243,20 +2621,19 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Subscription Section
-                Section(header: Text("Subscription")) {
-                    HStack {
-                        Text("Current Plan")
-                        Spacer()
-                        Text(api.currentCompany?.subscriptionTier.uppercased() ?? "N/A")
-                            .foregroundColor(.purple)
-                            .fontWeight(.medium)
-                    }
-                    
-                    if api.currentCompany?.subscriptionTier != "enterprise" {
-                        Button(action: {}) {
-                            Text("Upgrade Plan")
-                                .frame(maxWidth: .infinity)
+                // Low Stock Settings (Admin only)
+                if api.currentUser?.role == "admin" {
+                    Section(header: Text("Inventory Settings")) {
+                        HStack {
+                            Text("Default Low Stock Threshold")
+                            Spacer()
+                            Text("\(api.currentCompany?.lowStockThreshold ?? 5)")
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Button("Configure Low Stock Alerts") {
+                            defaultLowStockThreshold = Double(api.currentCompany?.lowStockThreshold ?? 5)
+                            showingLowStockSettings = true
                         }
                     }
                 }
@@ -2285,14 +2662,6 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Features Section
-                Section(header: Text("Features")) {
-                    FeatureRow(icon: "infinity", title: "Unlimited Inventory Items", isEnabled: true)
-                    FeatureRow(icon: "camera.fill", title: "Barcode Scanning", isEnabled: true)
-                    FeatureRow(icon: "clock.fill", title: "Activity Tracking", isEnabled: true)
-                    FeatureRow(icon: "person.3.fill", title: "Multi-User Support", isEnabled: true)
-                }
-                
                 // Actions Section
                 Section {
                     Button(action: { showingLogoutAlert = true }) {
@@ -2314,28 +2683,116 @@ struct SettingsView: View {
             } message: {
                 Text("Are you sure you want to sign out?")
             }
+            .sheet(isPresented: $showingLowStockSettings) {
+                CompanyLowStockSettingsView(threshold: $defaultLowStockThreshold)
+            }
         }
     }
 }
 
-struct FeatureRow: View {
-    let icon: String
-    let title: String
-    let isEnabled: Bool
+// MARK: - Company Low Stock Settings View (NEW)
+struct CompanyLowStockSettingsView: View {
+    @Binding var threshold: Double
+    @Environment(\.presentationMode) var presentationMode
+    @State private var isUpdating = false
+    @State private var errorMessage = ""
     
     var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(.green)
-                .frame(width: 30)
-            
-            Text(title)
-            
-            Spacer()
-            
-            if isEnabled {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
+        NavigationView {
+            VStack(spacing: 24) {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.orange)
+                    
+                    Text("Default Low Stock Alert")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("Set the default threshold for low stock alerts across all items. Individual items can have their own custom thresholds.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top)
+                
+                VStack(spacing: 16) {
+                    HStack {
+                        Text("Alert when quantity is at or below:")
+                        Spacer()
+                        Text("\(Int(threshold))")
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange)
+                    }
+                    
+                    Slider(value: $threshold, in: 0...50, step: 1)
+                        .accentColor(.orange)
+                    
+                    HStack {
+                        Text("0 (Disabled)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("50")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(10)
+                .padding(.horizontal)
+                
+                if !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+                
+                Button(action: saveThreshold) {
+                    if isUpdating {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Text("Save Default Threshold")
+                            .fontWeight(.semibold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.orange)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .disabled(isUpdating)
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+    }
+    
+    private func saveThreshold() {
+        isUpdating = true
+        errorMessage = ""
+        
+        Task {
+            do {
+                _ = try await APIService.shared.updateCompanyLowStockThreshold(Int(threshold))
+                
+                await MainActor.run {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to update threshold: \(error.localizedDescription)"
+                    isUpdating = false
+                }
             }
         }
     }
@@ -2347,4 +2804,3 @@ extension View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
-

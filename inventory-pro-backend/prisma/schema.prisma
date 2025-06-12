@@ -8,14 +8,16 @@ datasource db {
 }
 
 model Company {
-  id                String   @id @default(cuid())
-  name              String
-  code              String   @unique
-  subscription_tier String   @default("trial")
-  max_users         Int?     @default(50)
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String
+  code                 String   @unique
+  subscription_tier    String   @default("trial")
+  max_users            Int      @default(50)
+  low_stock_threshold  Int?     @default(5)  // New field for default low stock threshold
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
 
+  // Relations
   users      User[]
   items      Item[]
   activities Activity[]
@@ -24,57 +26,58 @@ model Company {
 }
 
 model User {
-  id         String    @id @default(cuid())
-  email      String    @unique
-  name       String
-  password   String
-  role       String    @default("user")
-  isActive   Boolean   @default(true)
-  last_login DateTime?
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String
+  password    String
+  role        String    @default("user")
+  isActive    Boolean   @default(true)
+  last_login  DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  company_id  String
 
-  company_id String
-  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
-
+  // Relations
+  company    Company    @relation(fields: [company_id], references: [id], onDelete: Cascade)
   activities Activity[]
 
   @@map("users")
 }
 
 model Item {
-  id         String   @id @default(cuid())
-  name       String
-  quantity   Int      @default(0)
-  barcode    String   @unique
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String
+  quantity             Int      @default(0)
+  barcode              String   @unique
+  low_stock_threshold  Int?     // New field for item-specific low stock threshold
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  company_id           String
 
-  company_id String
-  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
-
+  // Relations
+  company    Company    @relation(fields: [company_id], references: [id], onDelete: Cascade)
   activities Activity[]
 
   @@map("items")
 }
 
 model Activity {
-  id           String   @id @default(cuid())
-  type         String
-  quantity     Int?
-  old_quantity Int?
-  item_name    String
-  user_name    String?
-  created_at   DateTime @default(now())
+  id            String   @id @default(cuid())
+  type          String
+  quantity      Int?
+  old_quantity  Int?
+  item_name     String
+  user_name     String
+  session_title String?  // New field for batch operation titles
+  created_at    DateTime @default(now())
+  company_id    String
+  item_id       String?
+  user_id       String
 
-  company_id String
-  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
-
-  user_id String?
-  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
-
-  item_id String?
+  // Relations
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
   item    Item?   @relation(fields: [item_id], references: [id], onDelete: SetNull)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("activities")
 }

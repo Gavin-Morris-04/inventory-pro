@@ -179,7 +179,8 @@ app.post('/api/auth/login', async (req, res) => {
         name: user.company.name,
         code: user.company.code,
         subscription_tier: user.company.subscription_tier,
-        max_users: user.company.max_users
+        max_users: user.company.max_users,
+        low_stock_threshold: user.company.low_stock_threshold || 5
       },
       token
     });
@@ -237,7 +238,8 @@ app.post('/api/companies/register', async (req, res) => {
           name: companyName.trim(),
           code: finalCompanyCode,
           subscription_tier: 'trial',
-          max_users: 50
+          max_users: 50,
+          low_stock_threshold: 5
         }
       });
       
@@ -281,7 +283,8 @@ app.post('/api/companies/register', async (req, res) => {
         name: result.company.name,
         code: result.company.code,
         subscription_tier: result.company.subscription_tier,
-        max_users: result.company.max_users
+        max_users: result.company.max_users,
+        low_stock_threshold: result.company.low_stock_threshold
       },
       token
     });
@@ -307,7 +310,8 @@ app.get('/api/items', authenticateToken, async (req, res) => {
       name: item.name,
       quantity: item.quantity,
       barcode: item.barcode,
-      updated_at: item.updated_at.toISOString()
+      updated_at: item.updated_at.toISOString(),
+      low_stock_threshold: item.low_stock_threshold
     }));
     
     res.json(formattedItems);
@@ -364,7 +368,8 @@ app.post('/api/items', authenticateToken, async (req, res) => {
       name: item.name,
       quantity: item.quantity,
       barcode: item.barcode,
-      updated_at: item.updated_at.toISOString()
+      updated_at: item.updated_at.toISOString(),
+      low_stock_threshold: item.low_stock_threshold
     });
   } catch (error) {
     console.error('❌ Create item error:', error);
@@ -421,11 +426,53 @@ app.put('/api/items', authenticateToken, async (req, res) => {
       name: item.name,
       quantity: item.quantity,
       barcode: item.barcode,
-      updated_at: item.updated_at.toISOString()
+      updated_at: item.updated_at.toISOString(),
+      low_stock_threshold: item.low_stock_threshold
     });
   } catch (error) {
     console.error('❌ Update item error:', error);
     res.status(500).json({ error: 'Failed to update item' });
+  }
+});
+
+// Update item low stock threshold
+app.put('/api/items/threshold', authenticateToken, async (req, res) => {
+  try {
+    const { id, lowStockThreshold } = req.body;
+    
+    if (!id || lowStockThreshold === undefined) {
+      return res.status(400).json({ error: 'ID and lowStockThreshold are required' });
+    }
+    
+    const existingItem = await prisma.item.findFirst({
+      where: { 
+        id,
+        company_id: req.user.company_id 
+      }
+    });
+    
+    if (!existingItem) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    const item = await prisma.item.update({
+      where: { id },
+      data: { low_stock_threshold: parseInt(lowStockThreshold) }
+    });
+    
+    console.log('✅ Item threshold updated:', item.name);
+    
+    res.json({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      barcode: item.barcode,
+      updated_at: item.updated_at.toISOString(),
+      low_stock_threshold: item.low_stock_threshold
+    });
+  } catch (error) {
+    console.error('❌ Update item threshold error:', error);
+    res.status(500).json({ error: 'Failed to update item threshold' });
   }
 });
 
@@ -499,7 +546,8 @@ app.get('/api/items/search', authenticateToken, async (req, res) => {
       name: item.name,
       quantity: item.quantity,
       barcode: item.barcode,
-      updated_at: item.updated_at.toISOString()
+      updated_at: item.updated_at.toISOString(),
+      low_stock_threshold: item.low_stock_threshold
     });
   } catch (error) {
     console.error('❌ Search item error:', error);
@@ -525,13 +573,113 @@ app.get('/api/activities', authenticateToken, async (req, res) => {
       old_quantity: activity.old_quantity,
       item_name: activity.item_name,
       user_name: activity.user_name,
-      created_at: activity.created_at.toISOString()
+      created_at: activity.created_at.toISOString(),
+      session_title: activity.session_title,
+      item_id: activity.item_id
     }));
     
     res.json(formattedActivities);
   } catch (error) {
     console.error('❌ Get activities error:', error);
     res.status(500).json({ error: 'Failed to fetch activities' });
+  }
+});
+
+// Get activities for specific item
+app.get('/api/activities/item/:itemId', authenticateToken, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    
+    const activities = await prisma.activity.findMany({
+      where: { 
+        company_id: req.user.company_id,
+        item_id: itemId
+      },
+      orderBy: { created_at: 'desc' },
+      take: 50
+    });
+    
+    const formattedActivities = activities.map(activity => ({
+      id: activity.id,
+      type: activity.type,
+      quantity: activity.quantity,
+      old_quantity: activity.old_quantity,
+      item_name: activity.item_name,
+      user_name: activity.user_name,
+      created_at: activity.created_at.toISOString(),
+      session_title: activity.session_title,
+      item_id: activity.item_id
+    }));
+    
+    res.json(formattedActivities);
+  } catch (error) {
+    console.error('❌ Get item activities error:', error);
+    res.status(500).json({ error: 'Failed to fetch item activities' });
+  }
+});
+
+// Create batch activity
+app.post('/api/activities/batch', authenticateToken, async (req, res) => {
+  try {
+    const { sessionTitle, items } = req.body;
+    
+    if (!sessionTitle || !items || !Array.isArray(items)) {
+      return res.status(400).json({ error: 'Session title and items array are required' });
+    }
+    
+    console.log('🔄 Processing batch operation:', sessionTitle);
+    
+    // Process all items in a transaction
+    await prisma.$transaction(async (prisma) => {
+      for (const batchItem of items) {
+        const { itemId, quantityChange } = batchItem;
+        
+        // Get current item
+        const currentItem = await prisma.item.findFirst({
+          where: { 
+            id: itemId,
+            company_id: req.user.company_id 
+          }
+        });
+        
+        if (!currentItem) {
+          throw new Error(`Item not found: ${itemId}`);
+        }
+        
+        // Calculate new quantity
+        const newQuantity = Math.max(0, currentItem.quantity + quantityChange);
+        
+        // Update item quantity
+        await prisma.item.update({
+          where: { id: itemId },
+          data: { quantity: newQuantity }
+        });
+        
+        // Log activity
+        const activityType = quantityChange > 0 ? 'added' : 'removed';
+        
+        await prisma.activity.create({
+          data: {
+            type: activityType,
+            quantity: Math.abs(quantityChange),
+            old_quantity: currentItem.quantity,
+            item_name: currentItem.name,
+            user_name: req.user.name,
+            company_id: req.user.company_id,
+            item_id: currentItem.id,
+            user_id: req.user.id,
+            session_title: sessionTitle
+          }
+        });
+      }
+    });
+    
+    console.log('✅ Batch operation completed:', sessionTitle);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Batch activity error:', error);
+    res.status(500).json({ error: 'Failed to process batch operation' });
   }
 });
 
@@ -575,6 +723,285 @@ app.get('/api/users', authenticateToken, async (req, res) => {
   }
 });
 
+// Generate invite link
+app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { role } = req.body;
+    
+    if (!role || !['user', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Valid role is required' });
+    }
+
+    // Generate invite token
+    const inviteToken = jwt.sign(
+      { 
+        companyId: req.user.company_id,
+        role: role,
+        inviterId: req.user.id,
+        type: 'invite'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Calculate expiration date
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 7);
+
+    console.log('✅ Invite link generated for role:', role);
+
+    res.json({
+      token: inviteToken,
+      company_name: req.user.company.name,
+      inviter_name: req.user.name,
+      role: role,
+      expires_at: expirationDate.toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Generate invite error:', error);
+    res.status(500).json({ error: 'Failed to generate invite link' });
+  }
+});
+
+// Accept invite
+app.post('/api/users/accept-invite', async (req, res) => {
+  try {
+    const { token, name, email, password } = req.body;
+    
+    if (!token || !name || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Verify invite token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid or expired invitation' });
+    }
+
+    if (decoded.type !== 'invite') {
+      return res.status(400).json({ error: 'Invalid invitation token' });
+    }
+
+    const userEmail = email.toLowerCase().trim();
+    
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: userEmail }
+    });
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Get company
+    const company = await prisma.company.findUnique({
+      where: { id: decoded.companyId }
+    });
+
+    if (!company) {
+      return res.status(400).json({ error: 'Company not found' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Create user
+    const newUser = await prisma.user.create({
+      data: {
+        email: userEmail,
+        name: name.trim(),
+        password: hashedPassword,
+        role: decoded.role,
+        company_id: decoded.companyId,
+        isActive: true
+      }
+    });
+
+    // Generate auth token
+    const authToken = jwt.sign(
+      { 
+        userId: newUser.id, 
+        companyId: decoded.companyId,
+        role: decoded.role 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('✅ Invite accepted by:', newUser.email);
+
+    res.json({
+      success: true,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        created_at: newUser.created_at.toISOString()
+      },
+      company: {
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        subscription_tier: company.subscription_tier,
+        max_users: company.max_users,
+        low_stock_threshold: company.low_stock_threshold
+      },
+      authToken
+    });
+  } catch (error) {
+    console.error('❌ Accept invite error:', error);
+    res.status(500).json({ error: 'Failed to accept invitation' });
+  }
+});
+
+// Invite user (Admin only) - Legacy endpoint for backward compatibility
+app.post('/api/users/invite', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { email, name, role } = req.body;
+    
+    if (!email || !name || !role) {
+      return res.status(400).json({ error: 'Email, name, and role are required' });
+    }
+
+    const userEmail = email.toLowerCase().trim();
+    
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: userEmail }
+    });
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Check company user limit
+    const userCount = await prisma.user.count({
+      where: { company_id: req.user.company_id }
+    });
+
+    const company = await prisma.company.findUnique({
+      where: { id: req.user.company_id }
+    });
+
+    if (userCount >= (company.max_users || 50)) {
+      return res.status(400).json({ error: 'User limit reached for your subscription' });
+    }
+
+    // Generate temporary password
+    const tempPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
+
+    // Create user
+    const newUser = await prisma.user.create({
+      data: {
+        email: userEmail,
+        name: name.trim(),
+        password: hashedPassword,
+        role: role === 'admin' ? 'admin' : 'user',
+        company_id: req.user.company_id,
+        isActive: true
+      }
+    });
+
+    console.log('✅ User invited:', newUser.email);
+
+    // In a real app, you'd send an email here
+    // For now, we'll return the invitation info
+    res.json({
+      success: true,
+      message: `Invitation sent to ${email}`,
+      invitationId: newUser.id,
+      emailSent: false, // Set to true when email service is configured
+      emailMethod: null,
+      emailError: 'Email service not configured',
+      manualInvitationData: {
+        to: email,
+        from: req.user.email,
+        link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/accept-invitation?token=${newUser.id}&tempPassword=${tempPassword}`
+      },
+      invitationLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/accept-invitation?token=${newUser.id}&tempPassword=${tempPassword}`,
+      tempPassword: tempPassword // Remove this in production with real email
+    });
+
+  } catch (error) {
+    console.error('❌ Invite user error:', error);
+    res.status(500).json({ error: 'Failed to invite user' });
+  }
+});
+
+// Delete user (Admin only)
+app.delete('/api/users/delete', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Don't allow deleting yourself
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Check if user exists and belongs to the same company
+    const userToDelete = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        company_id: req.user.company_id 
+      }
+    });
+
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Soft delete by setting isActive to false
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false }
+    });
+
+    console.log('✅ User deleted:', userToDelete.email);
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('❌ Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Test email configuration endpoint
+app.post('/api/test/email', authenticateToken, async (req, res) => {
+  try {
+    // For now, always return that email is not configured
+    // In a real app, you'd test your email service here
+    res.json({
+      success: true,
+      emailConfigured: false,
+      message: 'Email service not configured'
+    });
+  } catch (error) {
+    console.error('❌ Test email error:', error);
+    res.status(500).json({ error: 'Failed to test email configuration' });
+  }
+});
+
 // COMPANY ENDPOINTS
 
 // Get company info
@@ -594,12 +1021,47 @@ app.get('/api/companies/info', authenticateToken, async (req, res) => {
         name: company.name,
         code: company.code,
         subscription_tier: company.subscription_tier,
-        max_users: company.max_users
+        max_users: company.max_users,
+        low_stock_threshold: company.low_stock_threshold || 5
       }
     });
   } catch (error) {
     console.error('❌ Get company error:', error);
     res.status(500).json({ error: 'Failed to fetch company info' });
+  }
+});
+
+// Update company low stock threshold
+app.put('/api/companies/threshold', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { lowStockThreshold } = req.body;
+    
+    if (lowStockThreshold === undefined) {
+      return res.status(400).json({ error: 'lowStockThreshold is required' });
+    }
+
+    const company = await prisma.company.update({
+      where: { id: req.user.company_id },
+      data: { low_stock_threshold: parseInt(lowStockThreshold) }
+    });
+
+    console.log('✅ Company threshold updated:', company.name);
+
+    res.json({
+      id: company.id,
+      name: company.name,
+      code: company.code,
+      subscription_tier: company.subscription_tier,
+      max_users: company.max_users,
+      low_stock_threshold: company.low_stock_threshold
+    });
+  } catch (error) {
+    console.error('❌ Update company threshold error:', error);
+    res.status(500).json({ error: 'Failed to update company threshold' });
   }
 });
 
