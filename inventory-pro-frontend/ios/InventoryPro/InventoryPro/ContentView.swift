@@ -85,6 +85,25 @@ struct InviteLink: Codable {
     }
 }
 
+// New response structure for invite links
+struct InviteLinkResponse: Decodable {
+    let token: String
+    let companyName: String
+    let inviterName: String
+    let role: String
+    let expiresAt: String
+    let inviteUrl: String
+    
+    enum CodingKeys: String, CodingKey {
+        case token
+        case companyName = "company_name"
+        case inviterName = "inviter_name"
+        case role
+        case expiresAt = "expires_at"
+        case inviteUrl = "invite_url"
+    }
+}
+
 /// MARK: - API Service
 @MainActor
 class APIService: ObservableObject {
@@ -401,7 +420,7 @@ class APIService: ObservableObject {
         return try await makeRequest(endpoint: "/api/users")
     }
     
-    func generateInviteLink(role: String) async throws -> InviteLink {
+    func generateInviteLink(role: String) async throws -> InviteLinkResponse {
         struct InviteRequest: Encodable {
             let role: String
         }
@@ -2387,7 +2406,7 @@ struct UserRowView: View {
     }
 }
 
-// MARK: - Invite Link Generator View (NEW)
+// MARK: - Invite Link Generator View (UPDATED)
 struct InviteLinkGeneratorView: View {
     @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var inventoryManager: InventoryManager
@@ -2563,11 +2582,18 @@ struct InviteLinkGeneratorView: View {
         
         Task {
             do {
-                let inviteLink = try await APIService.shared.generateInviteLink(role: selectedRole)
+                let response = try await APIService.shared.generateInviteLink(role: selectedRole)
                 
                 await MainActor.run {
-                    self.inviteDetails = inviteLink
-                    self.generatedLink = "https://your-app.com/invite/\(inviteLink.token)"
+                    // Use the invite_url from the server response instead of building our own
+                    self.generatedLink = response.inviteUrl
+                    self.inviteDetails = InviteLink(
+                        token: response.token,
+                        companyName: response.companyName,
+                        inviterName: response.inviterName,
+                        role: response.role,
+                        expiresAt: response.expiresAt
+                    )
                     self.isGenerating = false
                 }
             } catch {
