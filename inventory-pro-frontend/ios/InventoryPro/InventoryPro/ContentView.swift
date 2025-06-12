@@ -85,7 +85,7 @@ struct InviteLink: Codable {
     }
 }
 
-// New response structure for invite links
+// Response structure for invite links
 struct InviteLinkResponse: Decodable {
     let token: String
     let companyName: String
@@ -427,38 +427,6 @@ class APIService: ObservableObject {
         
         let body = try JSONEncoder().encode(InviteRequest(role: role))
         return try await makeRequest(endpoint: "/api/users/generate-invite", method: "POST", body: body)
-    }
-    
-    func acceptInvite(token: String, name: String, email: String, password: String) async throws {
-        struct AcceptInviteRequest: Encodable {
-            let token: String
-            let name: String
-            let email: String
-            let password: String
-        }
-        
-        struct AcceptInviteResponse: Decodable {
-            let success: Bool
-            let user: User
-            let company: Company
-            let authToken: String
-        }
-        
-        let body = try JSONEncoder().encode(AcceptInviteRequest(token: token, name: name, email: email, password: password))
-        let response: AcceptInviteResponse = try await makeRequest(endpoint: "/api/users/accept-invite", method: "POST", body: body)
-        
-        // Save auth data
-        UserDefaults.standard.set(response.authToken, forKey: "authToken")
-        if let userData = try? JSONEncoder().encode(response.user) {
-            UserDefaults.standard.set(userData, forKey: "currentUser")
-        }
-        if let companyData = try? JSONEncoder().encode(response.company) {
-            UserDefaults.standard.set(companyData, forKey: "currentCompany")
-        }
-        
-        self.currentUser = response.user
-        self.currentCompany = response.company
-        self.isAuthenticated = true
     }
     
     func deleteUser(userId: String) async throws {
@@ -2406,15 +2374,15 @@ struct UserRowView: View {
     }
 }
 
-// MARK: - Invite Link Generator View (UPDATED)
+// MARK: - Invite Link Generator View (SIMPLIFIED)
 struct InviteLinkGeneratorView: View {
     @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var inventoryManager: InventoryManager
     @State private var selectedRole = "user"
     @State private var isGenerating = false
     @State private var generatedLink: String?
-    @State private var inviteDetails: InviteLink?
     @State private var showingCopyConfirmation = false
+    @State private var errorMessage = ""
     
     var body: some View {
         NavigationView {
@@ -2429,7 +2397,7 @@ struct InviteLinkGeneratorView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text("Create a secure invitation link that you can share with new team members")
+                    Text("Create a secure invitation link that new team members can use to join your company via our website")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -2449,7 +2417,7 @@ struct InviteLinkGeneratorView: View {
                                         .foregroundColor(selectedRole == "user" ? .purple : .secondary)
                                     
                                     VStack(alignment: .leading) {
-                                        Text("User")
+                                        Text("Team Member")
                                             .fontWeight(.medium)
                                         Text("Can view and manage inventory")
                                             .font(.caption)
@@ -2491,50 +2459,92 @@ struct InviteLinkGeneratorView: View {
                 }
                 .padding(.horizontal)
                 
+                if !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+                
                 // Generated Link Section
-                if let link = generatedLink, let details = inviteDetails {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Invitation Ready!")
-                            .font(.headline)
-                            .foregroundColor(.green)
+                if let link = generatedLink {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Invitation Link Created!")
+                                .font(.headline)
+                                .foregroundColor(.green)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Share this link with your team member:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                Text(link)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .padding()
+                                    .background(Color(.secondarySystemBackground))
+                                    .cornerRadius(8)
+                                    .textSelection(.enabled)
+                            }
+                            
+                            HStack(spacing: 12) {
+                                Button(action: {
+                                    UIPasteboard.general.string = link
+                                    showingCopyConfirmation = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "doc.on.doc")
+                                        Text("Copy Link")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.purple)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                                }
+                                
+                                Button(action: shareLink) {
+                                    HStack {
+                                        Image(systemName: "square.and.arrow.up")
+                                        Text("Share")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                                }
+                            }
+                        }
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Role: \(details.role == "admin" ? "Administrator" : "User")")
-                                .font(.subheadline)
-                            
-                            Text("Expires: \(formatDate(details.expiresAt))")
+                            Text("📝 How it works:")
                                 .font(.caption)
+                                .fontWeight(.semibold)
+                            
+                            Text("• Send this link to your team member")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            
+                            Text("• They'll open it in their browser")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            
+                            Text("• They'll create their account on the website")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            
+                            Text("• They can then download the app or use the web version")
+                                .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                         .padding()
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(8)
-                        
-                        Text("Share this link:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text(link)
-                            .font(.caption)
-                            .padding()
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(8)
-                            .textSelection(.enabled)
-                        
-                        Button(action: {
-                            UIPasteboard.general.string = link
-                            showingCopyConfirmation = true
-                        }) {
-                            HStack {
-                                Image(systemName: "doc.on.doc")
-                                Text("Copy Link")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.purple)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                        }
+                        .background(Color(.tertiarySystemBackground))
+                        .cornerRadius(10)
                     }
                     .padding(.horizontal)
                 } else {
@@ -2579,43 +2589,39 @@ struct InviteLinkGeneratorView: View {
     
     private func generateInviteLink() {
         isGenerating = true
+        errorMessage = ""
         
         Task {
             do {
                 let response = try await APIService.shared.generateInviteLink(role: selectedRole)
                 
                 await MainActor.run {
-                    // Use the invite_url from the server response instead of building our own
                     self.generatedLink = response.inviteUrl
-                    self.inviteDetails = InviteLink(
-                        token: response.token,
-                        companyName: response.companyName,
-                        inviterName: response.inviterName,
-                        role: response.role,
-                        expiresAt: response.expiresAt
-                    )
                     self.isGenerating = false
                 }
             } catch {
-                print("Error generating invite link: \(error)")
                 await MainActor.run {
+                    self.errorMessage = "Failed to generate invite link: \(error.localizedDescription)"
                     self.isGenerating = false
                 }
             }
         }
     }
     
-    private func formatDate(_ dateString: String) -> String {
-        let formatter = ISO8601DateFormatter()
+    private func shareLink() {
+        guard let link = generatedLink else { return }
         
-        if let date = formatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateStyle = .medium
-            displayFormatter.timeStyle = .short
-            return displayFormatter.string(from: date)
+        let activityVC = UIActivityViewController(
+            activityItems: [
+                "Join our inventory management team! Use this link to create your account: \(link)"
+            ],
+            applicationActivities: nil
+        )
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(activityVC, animated: true)
         }
-        
-        return dateString
     }
 }
 
