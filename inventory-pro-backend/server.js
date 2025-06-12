@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 
 const app = express();
@@ -348,9 +349,6 @@ app.post('/api/items', authenticateToken, async (req, res) => {
       }
     });
     
-message: 'Inventory Pro API - GitHub Auto-Deploy Test!',
-
-
     // Log activity
     await prisma.activity.create({
       data: {
@@ -726,9 +724,9 @@ app.get('/api/users', authenticateToken, async (req, res) => {
   }
 });
 
-// Replace the invite link generation endpoint in your server.js with this fixed version:
+// NEW INVITE SYSTEM ENDPOINTS
 
-// Generate invite link (FIXED VERSION)
+// Generate invite link (UPDATED)
 app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -741,38 +739,35 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Valid role is required' });
     }
 
-    // Generate proper invite token with company and user info
-    const inviteToken = jwt.sign(
-      { 
-        companyId: req.user.company_id,
-        companyName: req.user.company.name,
-        companyCode: req.user.company.code,
-        role: role,
-        inviterId: req.user.id,
-        inviterName: req.user.name,
-        type: 'invite'
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Generate invite token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    // Calculate expiration date
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
+    // Save invite to database
+    const invite = await prisma.invite.create({
+      data: {
+        token,
+        company_id: req.user.company_id,
+        inviter_id: req.user.id,
+        role,
+        expires_at: expiresAt,
+        used: false
+      }
+    });
 
-    // Create proper frontend URL - adjust this to match your actual frontend URL
+    // Create frontend URL
     const frontendUrl = process.env.FRONTEND_URL || 'https://gavin-morris-04.github.io';
-    const inviteUrl = `${frontendUrl}/invite?token=${inviteToken}`;
+    const inviteUrl = `${frontendUrl}/invite/${token}`;
 
     console.log('✅ Invite link generated:', inviteUrl);
 
     res.json({
-      token: inviteToken,
+      token,
       company_name: req.user.company.name,
       inviter_name: req.user.name,
-      role: role,
-      expires_at: expirationDate.toISOString(),
-      invite_url: inviteUrl  // Add the full URL
+      role,
+      expires_at: expiresAt.toISOString(),
+      invite_url: inviteUrl
     });
   } catch (error) {
     console.error('❌ Generate invite error:', error);
@@ -780,47 +775,41 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
   }
 });
 
-// Add this new endpoint to validate invite tokens
-app.get('/api/users/validate-invite/:token', async (req, res) => {
+// Get invite details (NEW)
+app.get('/api/invites/:token', async (req, res) => {
   try {
     const { token } = req.params;
     
-    // Verify invite token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      return res.status(400).json({ error: 'Invalid or expired invitation' });
-    }
-
-    if (decoded.type !== 'invite') {
-      return res.status(400).json({ error: 'Invalid invitation token' });
-    }
-
-    // Get company info
-    const company = await prisma.company.findUnique({
-      where: { id: decoded.companyId }
+    const invite = await prisma.invite.findFirst({
+      where: { 
+        token, 
+        used: false, 
+        expires_at: { gt: new Date() } 
+      },
+      include: { 
+        company: true, 
+        inviter: true 
+      }
     });
-
-    if (!company) {
-      return res.status(400).json({ error: 'Company not found' });
+    
+    if (!invite) {
+      return res.status(404).json({ error: 'Invite not found or expired' });
     }
-
+    
     res.json({
-      valid: true,
-      company_name: company.name,
-      company_code: company.code,
-      inviter_name: decoded.inviterName,
-      role: decoded.role,
-      expires_at: new Date(decoded.exp * 1000).toISOString()
+      company_name: invite.company.name,
+      inviter_name: invite.inviter.name,
+      role: invite.role,
+      expires_at: invite.expires_at.toISOString()
     });
+    
   } catch (error) {
-    console.error('❌ Validate invite error:', error);
-    res.status(500).json({ error: 'Failed to validate invitation' });
+    console.error('❌ Get invite details error:', error);
+    res.status(500).json({ error: 'Failed to get invite details' });
   }
 });
 
-// Accept invite
+// Accept invite (UPDATED)
 app.post('/api/users/accept-invite', async (req, res) => {
   try {
     const { token, name, email, password } = req.body;
@@ -829,18 +818,20 @@ app.post('/api/users/accept-invite', async (req, res) => {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
-    // Verify invite token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      return res.status(400).json({ error: 'Invalid or expired invitation' });
+    // Find and validate invite
+    const invite = await prisma.invite.findFirst({
+      where: { 
+        token, 
+        used: false, 
+        expires_at: { gt: new Date() } 
+      },
+      include: { company: true }
+    });
+    
+    if (!invite) {
+      return res.status(404).json({ error: 'Invite not found or expired' });
     }
-
-    if (decoded.type !== 'invite') {
-      return res.status(400).json({ error: 'Invalid invitation token' });
-    }
-
+    
     const userEmail = email.toLowerCase().trim();
     
     // Check if user already exists
@@ -851,145 +842,68 @@ app.post('/api/users/accept-invite', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
-
-    // Get company
-    const company = await prisma.company.findUnique({
-      where: { id: decoded.companyId }
-    });
-
-    if (!company) {
-      return res.status(400).json({ error: 'Company not found' });
-    }
-
+    
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Create user
-    const newUser = await prisma.user.create({
-      data: {
-        email: userEmail,
-        name: name.trim(),
-        password: hashedPassword,
-        role: decoded.role,
-        company_id: decoded.companyId,
-        isActive: true
-      }
+    
+    // Create user and mark invite as used in transaction
+    const result = await prisma.$transaction(async (prisma) => {
+      // Create user
+      const user = await prisma.user.create({
+        data: {
+          name: name.trim(),
+          email: userEmail,
+          password: hashedPassword,
+          role: invite.role,
+          company_id: invite.company_id
+        }
+      });
+      
+      // Mark invite as used
+      await prisma.invite.update({
+        where: { id: invite.id },
+        data: { used: true }
+      });
+      
+      return user;
     });
-
+    
     // Generate auth token
     const authToken = jwt.sign(
       { 
-        userId: newUser.id, 
-        companyId: decoded.companyId,
-        role: decoded.role 
+        userId: result.id, 
+        companyId: invite.company_id,
+        role: invite.role 
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    console.log('✅ Invite accepted by:', newUser.email);
-
+    
+    console.log('✅ Invite accepted by:', result.email);
+    
     res.json({
       success: true,
       user: {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        role: newUser.role,
-        created_at: newUser.created_at.toISOString()
+        id: result.id,
+        name: result.name,
+        email: result.email,
+        role: result.role,
+        created_at: result.created_at.toISOString()
       },
       company: {
-        id: company.id,
-        name: company.name,
-        code: company.code,
-        subscription_tier: company.subscription_tier,
-        max_users: company.max_users,
-        low_stock_threshold: company.low_stock_threshold
+        id: invite.company.id,
+        name: invite.company.name,
+        code: invite.company.code,
+        subscription_tier: invite.company.subscription_tier,
+        max_users: invite.company.max_users,
+        low_stock_threshold: invite.company.low_stock_threshold
       },
       authToken
     });
+    
   } catch (error) {
     console.error('❌ Accept invite error:', error);
     res.status(500).json({ error: 'Failed to accept invitation' });
-  }
-});
-
-// Invite user (Admin only) - Legacy endpoint for backward compatibility
-app.post('/api/users/invite', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
-    const { email, name, role } = req.body;
-    
-    if (!email || !name || !role) {
-      return res.status(400).json({ error: 'Email, name, and role are required' });
-    }
-
-    const userEmail = email.toLowerCase().trim();
-    
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: userEmail }
-    });
-    
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
-    }
-
-    // Check company user limit
-    const userCount = await prisma.user.count({
-      where: { company_id: req.user.company_id }
-    });
-
-    const company = await prisma.company.findUnique({
-      where: { id: req.user.company_id }
-    });
-
-    if (userCount >= (company.max_users || 50)) {
-      return res.status(400).json({ error: 'User limit reached for your subscription' });
-    }
-
-    // Generate temporary password
-    const tempPassword = Math.random().toString(36).slice(-8);
-    const hashedPassword = await bcrypt.hash(tempPassword, 12);
-
-    // Create user
-    const newUser = await prisma.user.create({
-      data: {
-        email: userEmail,
-        name: name.trim(),
-        password: hashedPassword,
-        role: role === 'admin' ? 'admin' : 'user',
-        company_id: req.user.company_id,
-        isActive: true
-      }
-    });
-
-    console.log('✅ User invited:', newUser.email);
-
-    // In a real app, you'd send an email here
-    // For now, we'll return the invitation info
-    res.json({
-      success: true,
-      message: `Invitation sent to ${email}`,
-      invitationId: newUser.id,
-      emailSent: false, // Set to true when email service is configured
-      emailMethod: null,
-      emailError: 'Email service not configured',
-      manualInvitationData: {
-        to: email,
-        from: req.user.email,
-        link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/accept-invitation?token=${newUser.id}&tempPassword=${tempPassword}`
-      },
-      invitationLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/accept-invitation?token=${newUser.id}&tempPassword=${tempPassword}`,
-      tempPassword: tempPassword // Remove this in production with real email
-    });
-
-  } catch (error) {
-    console.error('❌ Invite user error:', error);
-    res.status(500).json({ error: 'Failed to invite user' });
   }
 });
 
@@ -1036,22 +950,6 @@ app.delete('/api/users/delete', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });
-  }
-});
-
-// Test email configuration endpoint
-app.post('/api/test/email', authenticateToken, async (req, res) => {
-  try {
-    // For now, always return that email is not configured
-    // In a real app, you'd test your email service here
-    res.json({
-      success: true,
-      emailConfigured: false,
-      message: 'Email service not configured'
-    });
-  } catch (error) {
-    console.error('❌ Test email error:', error);
-    res.status(500).json({ error: 'Failed to test email configuration' });
   }
 });
 
