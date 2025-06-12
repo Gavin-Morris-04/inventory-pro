@@ -1,0 +1,81 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id                String   @id @default(cuid())
+  name              String
+  code              String   @unique
+  subscription_tier String   @default("trial")
+  max_users         Int?     @default(50)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  users      User[]
+  items      Item[]
+  activities Activity[]
+
+  @@map("companies")
+}
+
+model User {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  name       String
+  password   String
+  role       String    @default("user")
+  isActive   Boolean   @default(true)
+  last_login DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  company_id String
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  activities Activity[]
+
+  @@map("users")
+}
+
+model Item {
+  id         String   @id @default(cuid())
+  name       String
+  quantity   Int      @default(0)
+  barcode    String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  company_id String
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  activities Activity[]
+
+  @@map("items")
+}
+
+model Activity {
+  id           String   @id @default(cuid())
+  type         String
+  quantity     Int?
+  old_quantity Int?
+  item_name    String
+  user_name    String?
+  created_at   DateTime @default(now())
+
+  company_id String
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  item_id String?
+  item    Item?   @relation(fields: [item_id], references: [id], onDelete: SetNull)
+
+  @@map("activities")
+}

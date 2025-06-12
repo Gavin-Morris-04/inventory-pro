@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Pro - Professional Inventory Management</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .barcode-pattern {
+            background: repeating-linear-gradient(
+                90deg,
+                #000 0px, #000 2px,
+                #fff 2px, #fff 4px
+            );
+        }
+        .activity-scroll {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .ios-button {
+            transition: all 0.2s ease;
+        }
+        .ios-button:active {
+            transform: scale(0.95);
+        }
+        .tab-bar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .tab-item {
+            transition: all 0.2s ease;
+        }
+        .tab-item.active {
+            color: #7c3aed;
+        }
+        .item-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+        .item-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // Icons (same as before)
+        const BuildingIcon = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 21h18"/>
+                <path d="M5 21V7l8-4v18"/>
+                <path d="M19 21V11l-6-4"/>
+                <line x1="9" y1="9" x2="9" y2="9.01"/>
+                <line x1="9" y1="12" x2="9" y2="12.01"/>
+                <line x1="9" y1="15" x2="9" y2="15.01"/>
+                <line x1="9" y1="18" x2="9" y2="18.01"/>
+            </svg>
+        );
+
+        const UserIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+        );
+
+        const UsersIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        );
+
+        const LockIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <circle cx="12" cy="16" r="1"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+        );
+
+        const CameraIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+            </svg>
+        );
+
+        const PackageIcon = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/>
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+        );
+
+        const PlusIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        );
+
+        const MinusIcon = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        );
+
+        const TrashIcon = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3,6 5,6 21,6"/>
+                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+        );
+
+        const SearchIcon = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+            </svg>
+        );
+
+        const ClockIcon = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12,6 12,12 16,14"/>
+            </svg>
+        );
+
+        const LogOutIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16,17 21,12 16,7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+        );
+
+        const SettingsIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v6m11-11h-6m-6 0H1"/>
+                <path d="M20.49 9.58L16.42 5.51M5.51 16.42L9.58 20.49M20.49 14.42L16.42 18.49M5.51 7.58L9.58 3.51"/>
+            </svg>
+        );
+
+        const CheckIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+        );
+
+        const ListIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+        );
+
+        const GearIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v6m11-11h-6m-6 0H1"/>
+                <path d="M20.49 9.58L16.42 5.51M5.51 16.42L9.58 20.49M20.49 14.42L16.42 18.49M5.51 7.58L9.58 3.51"/>
+            </svg>
+        );
+
+        // API Configuration
+        const API_BASE_URL = "https://inventory-pro-backend-production.up.railway.app";
+
+        const apiRequest = async (endpoint, options = {}) => {
+            const token = sessionStorage.getItem('authToken');
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...options.headers,
+                },
+                ...options,
+            };
+
+            try {
+                console.log(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    throw new Error('Invalid server response');
+                }
+
+                if (!response.ok) {
+                    console.error('❌ API Error:', data.error);
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+
+                console.log(`✅ API Success: ${endpoint}`);
+                return data;
+            } catch (error) {
+                console.error('🔥 Network Error:', error.message);
+                throw error;
+            }
+        };
+
+        // API Functions
+        const API = {
+            // Company Management
+            registerCompany: async (companyName, adminEmail, adminPassword, adminName) => {
+                return await apiRequest('/api/companies/register', {
+                    method: 'POST',
+                    body: JSON.stringify({ companyName, adminEmail, adminPassword, adminName }),
+                });
+            },
+
+            getCompanyInfo: async () => {
+                return await apiRequest('/api/companies/info');
+            },
+
+            // User Management
+            inviteUser: async (email, name, role) => {
+                return await apiRequest('/api/users/invite', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, name, role }),
+                });
+            },
+
+            getUsers: async () => {
+                return await apiRequest('/api/users');
+            },
+
+            deleteUser: async (userId) => {
+                return await apiRequest('/api/users/delete', {
+                    method: 'DELETE',
+                    body: JSON.stringify({ userId }),
+                });
+            },
+
+            // Authentication
+            login: async (email, password) => {
+                return await apiRequest('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password }),
+                });
+            },
+
+            // Items
+            createItem: async (name, quantity, barcode) => {
+                return await apiRequest('/api/items', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, quantity, barcode }),
+                });
+            },
+
+            updateItem: async (id, quantity) => {
+                return await apiRequest('/api/items', {
+                    method: 'PUT',
+                    body: JSON.stringify({ id, quantity }),
+                });
+            },
+
+            deleteItem: async (id) => {
+                return await apiRequest('/api/items', {
+                    method: 'DELETE',
+                    body: JSON.stringify({ id }),
+                });
+            },
+
+            getItems: async () => {
+                return await apiRequest('/api/items');
+            },
+
+            findItemByBarcode: async (barcode) => {
+                try {
+                    return await apiRequest(`/api/items/search?barcode=${encodeURIComponent(barcode)}`);
+                } catch (error) {
+                    if (error.message.includes('not found')) {
+                        return null;
+                    }
+                    throw error;
+                }
+            },
+
+            // Activities
+            getActivities: async () => {
+                return await apiRequest('/api/activities');
+            },
+
+            // Test email
+            testEmailConfiguration: async () => {
+                try {
+                    const response = await apiRequest('/api/test/email', {
+                        method: 'POST',
+                        body: JSON.stringify({ testType: 'email_config' }),
+                    });
+                    return response.emailConfigured;
+                } catch (error) {
+                    return false;
+                }
+            },
+        };
+
+        const InventorySystem = () => {
+            // Authentication state
+            const [user, setUser] = useState(null);
+            const [company, setCompany] = useState(null);
+            const [authView, setAuthView] = useState('login'); // 'login', 'register'
+            const [authLoading, setAuthLoading] = useState(false);
+            const [refreshID, setRefreshID] = useState(0);
+            
+            // Main app state
+            const [currentView, setCurrentView] = useState('items');
+            const [items, setItems] = useState([]);
+            const [activities, setActivities] = useState([]);
+            const [companyUsers, setCompanyUsers] = useState([]);
+            const [showAddForm, setShowAddForm] = useState(false);
+            const [showScanner, setShowScanner] = useState(false);
+            const [showInviteUser, setShowInviteUser] = useState(false);
+            const [newItem, setNewItem] = useState({ name: '', quantity: 1 });
+            const [scanResult, setScanResult] = useState('');
+            const [selectedItem, setSelectedItem] = useState(null);
+            const [adjustQuantity, setAdjustQuantity] = useState(1);
+            const [adjustAction, setAdjustAction] = useState('remove');
+            const [showItemDetail, setShowItemDetail] = useState(false);
+            const [itemsFilter, setItemsFilter] = useState('all');
+            const [itemsSearch, setItemsSearch] = useState('');
+            const [showBarcodeEntry, setShowBarcodeEntry] = useState(false);
+            const [isLoading, setIsLoading] = useState(false);
+            
+            // Auth form state
+            const [authForm, setAuthForm] = useState({ 
+                email: '', 
+                password: '', 
+                name: '', 
+                companyName: '',
+                companySize: 'small'
+            });
+
+            // Invite user form
+            const [inviteForm, setInviteForm] = useState({
+                email: '',
+                name: '',
+                role: 'user'
+            });
+            
+            // Check for existing session on load
+            useEffect(() => {
+                const token = sessionStorage.getItem('authToken');
+                const userData = sessionStorage.getItem('currentUser');
+                const companyData = sessionStorage.getItem('currentCompany');
+                
+                if (token && userData) {
+                    const parsedUser = JSON.parse(userData);
+                    const parsedCompany = companyData ? JSON.parse(companyData) : null;
+                    setUser(parsedUser);
+                    setCompany(parsedCompany);
+                    loadAppData();
+                }
+            }, []);
+
+            // Load all app data
+            const loadAppData = async () => {
+                setIsLoading(true);
+                try {
+                    console.log('📊 Loading company data...');
+                    
+                    const [itemsData, activitiesData, companyInfo] = await Promise.all([
+                        API.getItems(),
+                        API.getActivities(),
+                        API.getCompanyInfo()
+                    ]);
+
+                    setItems(itemsData || []);
+                    setActivities(activitiesData || []);
+                    setCompany(companyInfo.company);
+                    sessionStorage.setItem('currentCompany', JSON.stringify(companyInfo.company));
+
+                    // Load users if admin
+                    if (user?.role === 'admin') {
+                        const users = await API.getUsers();
+                        setCompanyUsers(users || []);
+                    }
+                    
+                    console.log(`✅ Loaded company data successfully`);
+                } catch (error) {
+                    console.error('❌ Failed to load app data:', error.message);
+                    // If unauthorized, logout
+                    if (error.message.includes('401') || error.message.includes('403')) {
+                        handleLogout();
+                    }
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            // Handle company registration
+            const handleCompanyRegister = async (e) => {
+                e.preventDefault();
+                setAuthLoading(true);
+                
+                try {
+                    const result = await API.registerCompany(
+                        authForm.companyName,
+                        authForm.email,
+                        authForm.password,
+                        authForm.name
+                    );
+                    
+                    if (result.success) {
+                        sessionStorage.setItem('authToken', result.token);
+                        sessionStorage.setItem('currentUser', JSON.stringify(result.user));
+                        sessionStorage.setItem('currentCompany', JSON.stringify(result.company));
+                        setUser(result.user);
+                        setCompany(result.company);
+                        setAuthForm({ email: '', password: '', name: '', companyName: '', companySize: 'small' });
+                        setRefreshID(prev => prev + 1);
+                        await loadAppData();
+                    }
+                } catch (error) {
+                    alert('Registration failed: ' + error.message);
+                } finally {
+                    setAuthLoading(false);
+                }
+            };
+
+            // Handle login
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setAuthLoading(true);
+                
+                try {
+                    const result = await API.login(authForm.email, authForm.password);
+                    
+                    if (result.success) {
+                        sessionStorage.setItem('authToken', result.token);
+                        sessionStorage.setItem('currentUser', JSON.stringify(result.user));
+                        sessionStorage.setItem('currentCompany', JSON.stringify(result.company));
+                        setUser(result.user);
+                        setCompany(result.company);
+                        setAuthForm({ email: '', password: '', name: '', companyName: '', companySize: 'small' });
+                        setRefreshID(prev => prev + 1);
+                        await loadAppData();
+                    }
+                } catch (error) {
+                    alert('Login failed: ' + error.message);
+                } finally {
+                    setAuthLoading(false);
+                }
+            };
+
+            // Handle logout
+            const handleLogout = () => {
+                setUser(null);
+                setCompany(null);
+                setItems([]);
+                setActivities([]);
+                setCompanyUsers([]);
+                sessionStorage.removeItem('authToken');
+                sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('currentCompany');
+                setCurrentView('items');
+                setAuthView('login');
+                setRefreshID(prev => prev + 1);
+            };
+
+            // Invite user
+            const handleInviteUser = async (e) => {
+                e.preventDefault();
+                
+                try {
+                    const result = await API.inviteUser(
+                        inviteForm.email,
+                        inviteForm.name,
+                        inviteForm.role
+                    );
+                    
+                    if (result.success) {
+                        alert(`Invitation sent to ${inviteForm.email}`);
+                        setInviteForm({ email: '', name: '', role: 'user' });
+                        setShowInviteUser(false);
+                        
+                        // Reload users
+                        const users = await API.getUsers();
+                        setCompanyUsers(users);
+                    }
+                } catch (error) {
+                    alert('Failed to invite user: ' + error.message);
+                }
+            };
+
+            // Delete user
+            const handleDeleteUser = async (userId) => {
+                if (!confirm('Are you sure you want to remove this user?')) return;
+                
+                try {
+                    await API.deleteUser(userId);
+                    const users = await API.getUsers();
+                    setCompanyUsers(users);
+                } catch (error) {
+                    alert('Failed to delete user: ' + error.message);
+                }
+            };
+
+            // Generate barcode
+            const generateBarcode = () => {
+                const companyCode = company?.code || 'INV';
+                const timestamp = Date.now();
+                return `${companyCode}-${timestamp.toString().slice(-6)}`;
+            };
+
+            // Add new item
+            const addItem = async () => {
+                if (!newItem.name.trim()) {
+                    alert('Please enter an item name');
+                    return;
+                }
+                
+                try {
+                    const barcode = generateBarcode();
+                    
+                    const item = await API.createItem(
+                        newItem.name.trim(),
+                        parseInt(newItem.quantity) || 1,
+                        barcode
+                    );
+                    
+                    await loadAppData();
+                    setNewItem({ name: '', quantity: 1 });
+                    setShowAddForm(false);
+                    
+                    alert('Item created successfully!');
+                    
+                } catch (error) {
+                    console.error('❌ Failed to create item:', error.message);
+                    alert('Failed to create item: ' + error.message);
+                }
+            };
+
+            // Update item quantity
+            const updateQuantity = async (id, change) => {
+                try {
+                    const item = items.find(i => i.id === id);
+                    if (!item) return;
+                    
+                    const newQuantity = Math.max(0, item.quantity + change);
+                    
+                    await API.updateItem(id, newQuantity);
+                    await loadAppData();
+                    
+                } catch (error) {
+                    console.error('❌ Failed to update item:', error.message);
+                    alert('Failed to update item: ' + error.message);
+                }
+            };
+
+            // Delete item
+            const deleteItem = async (id) => {
+                try {
+                    const item = items.find(i => i.id === id);
+                    if (!item) return;
+                    
+                    const confirmed = confirm(`Are you sure you want to delete "${item.name}"?`);
+                    if (!confirmed) return;
+                    
+                    await API.deleteItem(id);
+                    await loadAppData();
+                    
+                } catch (error) {
+                    console.error('❌ Failed to delete item:', error.message);
+                    alert('Failed to delete item: ' + error.message);
+                }
+            };
+
+            // Handle scanned barcode
+            const handleScannedBarcode = async (barcode) => {
+                try {
+                    const foundItem = await API.findItemByBarcode(barcode.trim());
+                    
+                    if (foundItem) {
+                        setSelectedItem(foundItem);
+                        setShowItemDetail(true);
+                        setScanResult(`Found: ${foundItem.name}`);
+                    } else {
+                        setScanResult('Item not found');
+                        alert('Item not found for barcode: ' + barcode);
+                    }
+                } catch (error) {
+                    setScanResult('Error scanning item: ' + error.message);
+                    alert('Error scanning item: ' + error.message);
+                }
+                setShowScanner(false);
+                setShowBarcodeEntry(false);
+            };
+
+            // Format date
+            const formatDate = (dateString) => {
+                if (!dateString) return 'N/A';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } catch {
+                    return dateString;
+                }
+            };
+
+            // Filter items
+            const getFilteredItems = () => {
+                let filtered = items;
+
+                if (itemsSearch.trim()) {
+                    filtered = filtered.filter(item => 
+                        item.name.toLowerCase().includes(itemsSearch.toLowerCase()) ||
+                        item.barcode.toLowerCase().includes(itemsSearch.toLowerCase())
+                    );
+                }
+
+                switch (itemsFilter) {
+                    case 'lowStock':
+                        filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
+                        break;
+                    case 'outOfStock':
+                        filtered = filtered.filter(item => item.quantity === 0);
+                        break;
+                }
+
+                return filtered;
+            };
+
+            // If not logged in, show auth screen
+            if (!user) {
+                return (
+                    <div key={refreshID} className="min-h-screen gradient-bg flex items-center justify-center p-4">
+                        {authView === 'register' ? (
+                            // Company Registration
+                            <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl">
+                                <div className="text-center mb-8">
+                                    <div className="mx-auto w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center mb-4">
+                                        <BuildingIcon className="w-10 h-10 text-white" />
+                                    </div>
+                                    <h1 className="text-3xl font-bold text-gray-800">Start Your Free Trial</h1>
+                                    <p className="text-gray-600 mt-2">Professional inventory management for your business</p>
+                                </div>
+
+                                <form onSubmit={handleCompanyRegister}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Company Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={authForm.companyName}
+                                                onChange={(e) => setAuthForm({...authForm, companyName: e.target.value})}
+                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                placeholder="Acme Corporation"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Company Size
+                                            </label>
+                                            <select
+                                                value={authForm.companySize}
+                                                onChange={(e) => setAuthForm({...authForm, companySize: e.target.value})}
+                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            >
+                                                <option value="small">1-10 employees</option>
+                                                <option value="medium">11-50 employees</option>
+                                                <option value="large">51-200 employees</option>
+                                                <option value="enterprise">200+ employees</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Admin Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={authForm.name}
+                                                onChange={(e) => setAuthForm({...authForm, name: e.target.value})}
+                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                placeholder="John Doe"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Admin Email
+                                            </label>
+                                            <input
+                                                type="email"
+                                                value={authForm.email}
+                                                onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
+                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                placeholder="admin@company.com"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Admin Password
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={authForm.password}
+                                                onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
+                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                placeholder="Create a strong password"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-purple-50 p-4 rounded-xl mb-6">
+                                        <h3 className="font-semibold text-purple-800 mb-2">✨ What's Included:</h3>
+                                        <ul className="text-sm text-purple-700 space-y-1">
+                                            <li>✓ 30-day free trial - no credit card required</li>
+                                            <li>✓ Unlimited users and inventory items</li>
+                                            <li>✓ Real-time barcode scanning</li>
+                                            <li>✓ Multi-location support</li>
+                                            <li>✓ Analytics and reporting</li>
+                                            <li>✓ 24/7 customer support</li>
+                                        </ul>
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={authLoading}
+                                        className="w-full bg-purple-600 text-white py-4 rounded-xl hover:bg-purple-700 disabled:opacity-50 font-semibold ios-button"
+                                    >
+                                        {authLoading ? 'Creating Account...' : 'Start Free Trial'}
+                                    </button>
+                                </form>
+
+                                <div className="mt-6 text-center">
+                                    <p className="text-gray-600">
+                                        Already have an account?{' '}
+                                        <button
+                                            onClick={() => setAuthView('login')}
+                                            className="text-purple-600 hover:text-purple-800 font-medium"
+                                        >
+                                            Sign In
+                                        </button>
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            // Login View
+                            <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
+                                <div className="text-center mb-8">
+                                    <div className="mx-auto w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center mb-4">
+                                        <PackageIcon className="w-10 h-10 text-white" />
+                                    </div>
+                                    <h1 className="text-3xl font-bold text-gray-800">Inventory Pro</h1>
+                                    <p className="text-gray-600 mt-2">Professional Inventory Management</p>
+                                </div>
+
+                                <form onSubmit={handleLogin}>
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={authForm.email}
+                                            onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
+                                            className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            placeholder="user@company.com"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Password
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={authForm.password}
+                                            onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
+                                            className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            placeholder="Enter your password"
+                                            required
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={authLoading}
+                                        className="w-full bg-purple-600 text-white py-4 rounded-xl hover:bg-purple-700 disabled:opacity-50 font-semibold ios-button"
+                                    >
+                                        {authLoading ? 'Signing in...' : 'Sign In'}
+                                    </button>
+                                </form>
+
+                                <div className="mt-6 text-center">
+                                    <p className="text-gray-600 mb-4">
+                                        New to Inventory Pro?{' '}
+                                        <button
+                                            onClick={() => setAuthView('register')}
+                                            className="text-purple-600 hover:text-purple-800 font-medium"
+                                        >
+                                            Start Free Trial
+                                        </button>
+                                    </p>
+                                    
+                                    <div className="pt-4 border-t">
+                                        <p className="text-sm text-gray-500">
+                                            Demo: demo@inventorypro.com / demo123
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            // Main app interface (iOS style)
+            return (
+                <div key={refreshID} className="min-h-screen bg-gray-100 pb-20">
+                    {/* Header */}
+                    <div className="bg-white shadow-sm border-b sticky top-0 z-40">
+                        <div className="px-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
+                                        <PackageIcon className="text-white w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-xl font-bold text-gray-800">Inventory Pro</h1>
+                                        <p className="text-sm text-gray-600">{company?.name}</p>
+                                    </div>
+                                </div>
+                                
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors ios-button"
+                                >
+                                    <LogOutIcon />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="px-4 py-6">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="text-center">
+                                    <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-gray-600">Loading...</p>
+                                </div>
+                            </div>
+                        ) : currentView === 'items' ? (
+                            /* Items List View */
+                            <div className="space-y-6">
+                                {/* Header */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-gray-800">All Items</h2>
+                                            {items.length === 0 ? (
+                                                <p className="text-gray-600">No items in your inventory</p>
+                                            ) : (
+                                                <p className="text-gray-600">
+                                                    {items.length} items · {items.reduce((sum, item) => sum + item.quantity, 0)} total units
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => setShowBarcodeEntry(true)}
+                                                className="p-3 bg-purple-600 text-white rounded-xl ios-button"
+                                            >
+                                                <SearchIcon />
+                                            </button>
+                                            <button
+                                                onClick={() => setShowScanner(true)}
+                                                className="p-3 bg-purple-600 text-white rounded-xl ios-button"
+                                            >
+                                                <CameraIcon />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Search and Filter */}
+                                    <div className="space-y-3">
+                                        <div className="relative">
+                                            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search items by name or barcode..."
+                                                value={itemsSearch}
+                                                onChange={(e) => setItemsSearch(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+                                        </div>
+                                        
+                                        <div className="flex bg-gray-200 rounded-xl p-1">
+                                            {[
+                                                { key: 'all', label: 'All Items' },
+                                                { key: 'lowStock', label: 'Low Stock' },
+                                                { key: 'outOfStock', label: 'Out of Stock' }
+                                            ].map(filter => (
+                                                <button
+                                                    key={filter.key}
+                                                    onClick={() => setItemsFilter(filter.key)}
+                                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                                                        itemsFilter === filter.key
+                                                            ? 'bg-white text-purple-600 shadow-sm'
+                                                            : 'text-gray-600'
+                                                    }`}
+                                                >
+                                                    {filter.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Items List */}
+                                {(() => {
+                                    const filteredItems = getFilteredItems();
+                                    
+                                    if (items.length === 0) {
+                                        return (
+                                            <div className="text-center py-20">
+                                                <PackageIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
+                                                <h3 className="text-xl font-medium text-gray-800 mb-2">No Items Yet</h3>
+                                                <p className="text-gray-600 mb-6">Start building your inventory by adding your first item</p>
+                                                <button
+                                                    onClick={() => setCurrentView('manage')}
+                                                    className="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 inline-flex items-center gap-2 ios-button"
+                                                >
+                                                    <PlusIcon />
+                                                    Add Your First Item
+                                                </button>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (filteredItems.length === 0) {
+                                        return (
+                                            <div className="text-center py-12">
+                                                <SearchIcon className="mx-auto mb-4 w-16 h-16 text-gray-300" />
+                                                <h3 className="text-lg font-medium text-gray-800 mb-2">No Items Found</h3>
+                                                <p className="text-gray-600">
+                                                    {itemsSearch ? `No items match "${itemsSearch}"` : 
+                                                     itemsFilter === 'lowStock' ? 'No items are low in stock' :
+                                                     itemsFilter === 'outOfStock' ? 'No items are out of stock' :
+                                                     'Try adjusting your search or filter'}
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="space-y-3">
+                                            {filteredItems.map((item) => (
+                                                <div key={item.id} className="bg-white rounded-xl p-4 card-shadow">
+                                                    <div className="flex items-center">
+                                                        <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
+                                                            <PackageIcon className="w-6 h-6 text-purple-600" />
+                                                        </div>
+                                                        
+                                                        <div className="flex-1">
+                                                            <h3 className="font-semibold text-gray-800">{item.name}</h3>
+                                                            <p className="text-sm text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded mt-1 inline-block">
+                                                                {item.barcode}
+                                                            </p>
+                                                            {item.updated_at && (
+                                                                <p className="text-xs text-gray-500 mt-1">
+                                                                    {formatDate(item.updated_at)}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        <div className="text-right">
+                                                            <div className={`text-lg font-bold ${
+                                                                item.quantity <= 0 ? 'text-red-600' : 
+                                                                item.quantity <= 5 ? 'text-orange-600' : 
+                                                                'text-green-600'
+                                                            }`}>
+                                                                {item.quantity}
+                                                            </div>
+                                                            <span className={`text-xs px-2 py-1 rounded-full ${
+                                                                item.quantity <= 0 ? 'bg-red-100 text-red-800' :
+                                                                item.quantity <= 5 ? 'bg-orange-100 text-orange-800' :
+                                                                'bg-green-100 text-green-800'
+                                                            }`}>
+                                                                {item.quantity <= 0 ? 'Out of Stock' :
+                                                                 item.quantity <= 5 ? 'Low Stock' :
+                                                                 'In Stock'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        ) : currentView === 'manage' ? (
+                            /* Inventory Management View */
+                            <div className="space-y-6">
+                                {/* Add Item Form */}
+                                {showAddForm && (
+                                    <div className="bg-white rounded-xl p-6 card-shadow">
+                                        <h3 className="text-lg font-semibold mb-4">Add New Item</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Item Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={newItem.name}
+                                                    onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                                                    className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    placeholder="Enter item name"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Initial Quantity</label>
+                                                <input
+                                                    type="number"
+                                                    value={newItem.quantity}
+                                                    onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
+                                                    className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    min="1"
+                                                />
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={addItem}
+                                                    className="flex-1 bg-purple-600 text-white py-3 rounded-xl hover:bg-purple-700 ios-button"
+                                                >
+                                                    Create Item
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowAddForm(false)}
+                                                    className="flex-1 bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setShowAddForm(true)}
+                                        className="flex-1 bg-green-600 text-white py-4 rounded-xl hover:bg-green-700 flex items-center justify-center gap-2 ios-button"
+                                    >
+                                        <PlusIcon />
+                                        Add Item
+                                    </button>
+                                    <button
+                                        onClick={() => setShowScanner(true)}
+                                        className="flex-1 bg-purple-600 text-white py-4 rounded-xl hover:bg-purple-700 flex items-center justify-center gap-2 ios-button"
+                                    >
+                                        <CameraIcon />
+                                        Scan Item
+                                    </button>
+                                </div>
+
+                                {/* Items Grid */}
+                                {items.length === 0 ? (
+                                    <div className="text-center py-20">
+                                        <PackageIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
+                                        <h3 className="text-xl font-medium text-gray-800 mb-2">No items in inventory</h3>
+                                        <p className="text-gray-600">Add your first item to get started</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {items.map(item => (
+                                            <div key={item.id} className="item-card">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="flex-1">
+                                                        <h4 className="font-semibold text-lg text-gray-800">{item.name}</h4>
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            Quantity: <span className={item.quantity <= 5 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>{item.quantity}</span>
+                                                        </p>
+                                                        {item.updated_at && (
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                {formatDate(item.updated_at)}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => deleteItem(item.id)}
+                                                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg ios-button"
+                                                    >
+                                                        <TrashIcon />
+                                                    </button>
+                                                </div>
+                                                
+                                                <div className="bg-gray-50 p-3 rounded-xl border mb-4">
+                                                    <div className="text-center">
+                                                        <div className="font-mono text-sm mb-1">{item.barcode}</div>
+                                                        <div className="barcode-pattern h-8 w-full rounded"></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-center gap-4">
+                                                    <button
+                                                        onClick={() => updateQuantity(item.id, -1)}
+                                                        className="w-10 h-10 bg-red-100 text-red-600 rounded-full hover:bg-red-200 flex items-center justify-center ios-button"
+                                                        disabled={item.quantity <= 0}
+                                                    >
+                                                        <MinusIcon />
+                                                    </button>
+                                                    <span className="px-6 py-2 bg-gray-100 rounded-xl border font-semibold text-lg min-w-[4rem] text-center">
+                                                        {item.quantity}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => updateQuantity(item.id, 1)}
+                                                        className="w-10 h-10 bg-green-100 text-green-600 rounded-full hover:bg-green-200 flex items-center justify-center ios-button"
+                                                    >
+                                                        <PlusIcon />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : currentView === 'activity' ? (
+                            /* Activity Log View */
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Activity Log</h2>
+                                    <p className="text-gray-600">Track all inventory changes</p>
+                                </div>
+                                
+                                {activities.length === 0 ? (
+                                    <div className="text-center py-20">
+                                        <ClockIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
+                                        <h3 className="text-xl font-medium text-gray-800 mb-2">No activity recorded yet</h3>
+                                        <p className="text-gray-600">Activity will appear here when you make changes</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {activities.map(activity => (
+                                            <div key={activity.id} className="bg-white rounded-xl p-4 card-shadow">
+                                                <div className="flex items-start gap-3">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                                        activity.type === 'created' ? 'bg-green-100 text-green-800' :
+                                                        activity.type === 'added' ? 'bg-blue-100 text-blue-800' :
+                                                        activity.type === 'removed' ? 'bg-orange-100 text-orange-800' :
+                                                        'bg-red-100 text-red-800'
+                                                    }`}>
+                                                        {activity.type.toUpperCase()}
+                                                    </span>
+                                                    
+                                                    <div className="flex-1">
+                                                        <h4 className="font-medium text-gray-800">{activity.item_name}</h4>
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {activity.type === 'created' && `Created with initial quantity of ${activity.quantity}`}
+                                                            {activity.type === 'added' && `Added ${activity.quantity} items (was ${activity.old_quantity})`}
+                                                            {activity.type === 'removed' && `Removed ${activity.quantity} items (was ${activity.old_quantity})`}
+                                                            {activity.type === 'deleted' && `Deleted item (had ${activity.quantity} items)`}
+                                                        </p>
+                                                        {activity.created_at && activity.user_name && (
+                                                            <p className="text-xs text-gray-500 mt-2">
+                                                                By {activity.user_name} • {formatDate(activity.created_at)}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : currentView === 'team' ? (
+                            /* Team Management View (Admin Only) */
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-800">Team Management</h2>
+                                        <p className="text-gray-600">Manage users and permissions</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowInviteUser(true)}
+                                        className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 flex items-center gap-2 ios-button"
+                                    >
+                                        <PlusIcon />
+                                        Invite User
+                                    </button>
+                                </div>
+
+                                {showInviteUser && (
+                                    <div className="bg-white rounded-xl p-6 card-shadow">
+                                        <h3 className="font-semibold mb-4">Invite New User</h3>
+                                        <form onSubmit={handleInviteUser} className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Full Name"
+                                                    value={inviteForm.name}
+                                                    onChange={(e) => setInviteForm({...inviteForm, name: e.target.value})}
+                                                    className="p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    required
+                                                />
+                                                <input
+                                                    type="email"
+                                                    placeholder="Email Address"
+                                                    value={inviteForm.email}
+                                                    onChange={(e) => setInviteForm({...inviteForm, email: e.target.value})}
+                                                    className="p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <select
+                                                    value={inviteForm.role}
+                                                    onChange={(e) => setInviteForm({...inviteForm, role: e.target.value})}
+                                                    className="flex-1 p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                >
+                                                    <option value="user">User</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                                <button
+                                                    type="submit"
+                                                    className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 ios-button"
+                                                >
+                                                    Send Invite
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowInviteUser(false)}
+                                                    className="bg-gray-500 text-white px-6 py-3 rounded-xl hover:bg-gray-600 ios-button"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                )}
+
+                                {companyUsers.length === 0 ? (
+                                    <div className="text-center py-20">
+                                        <UsersIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
+                                        <h3 className="text-xl font-medium text-gray-800 mb-2">No team members yet</h3>
+                                        <p className="text-gray-600">Invite users to join your team</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {companyUsers.map(u => (
+                                            <div key={u.id} className="bg-white rounded-xl p-4 card-shadow">
+                                                <div className="flex items-center">
+                                                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
+                                                        <UserIcon className="w-6 h-6 text-purple-600" />
+                                                    </div>
+                                                    
+                                                    <div className="flex-1">
+                                                        <h3 className="font-semibold text-gray-800">{u.name}</h3>
+                                                        <p className="text-sm text-gray-600">{u.email}</p>
+                                                        {u.created_at && (
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Joined {formatDate(u.created_at)}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <div className="text-right">
+                                                        <span className={`text-xs px-3 py-1 rounded-full ${
+                                                            u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                                                        }`}>
+                                                            {u.role === 'admin' ? 'Administrator' : 'User'}
+                                                        </span>
+                                                        {u.id !== user.id && (
+                                                            <button
+                                                                onClick={() => handleDeleteUser(u.id)}
+                                                                className="block text-red-600 hover:text-red-800 text-sm mt-2"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : currentView === 'settings' ? (
+                            /* Settings View */
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800">Settings</h2>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    {/* Company Information */}
+                                    <div className="bg-white rounded-xl p-6 card-shadow">
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Company Information</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600">Company Name</span>
+                                                <span className="font-medium">{company?.name || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600">Company Code</span>
+                                                <span className="font-mono font-medium">{company?.code || 'N/A'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Subscription */}
+                                    <div className="bg-white rounded-xl p-6 card-shadow">
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Subscription</h3>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div>
+                                                <p className="font-medium">Current Plan: {company?.subscription_tier?.toUpperCase()}</p>
+                                                <p className="text-sm text-gray-600">
+                                                    {company?.subscription_tier === 'trial' && 'Free trial - Upgrade to unlock all features'}
+                                                    {company?.subscription_tier === 'pro' && 'Professional plan - Perfect for growing businesses'}
+                                                    {company?.subscription_tier === 'enterprise' && 'Enterprise plan - Unlimited everything'}
+                                                </p>
+                                            </div>
+                                            {company?.subscription_tier !== 'enterprise' && (
+                                                <button className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 ios-button">
+                                                    Upgrade Plan
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Account */}
+                                    <div className="bg-white rounded-xl p-6 card-shadow">
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Account</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600">Name</span>
+                                                <span className="font-medium">{user?.name || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600">Email</span>
+                                                <span className="font-medium">{user?.email || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600">Role</span>
+                                                <span className="font-medium">{user?.role === 'admin' ? 'Administrator' : 'User'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Features */}
+                                    <div className="bg-white rounded-xl p-6 card-shadow">
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Features</h3>
+                                        <div className="space-y-3">
+                                            {[
+                                                { icon: "∞", title: "Unlimited Inventory Items" },
+                                                { icon: "📷", title: "Barcode Scanning" },
+                                                { icon: "🕒", title: "Activity Tracking" },
+                                                { icon: "👥", title: "Multi-User Support" }
+                                            ].map((feature, index) => (
+                                                <div key={index} className="flex items-center gap-3">
+                                                    <span className="text-green-600 text-lg">{feature.icon}</span>
+                                                    <span className="text-gray-800">{feature.title}</span>
+                                                    <CheckIcon className="w-5 h-5 text-green-600 ml-auto" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="bg-white rounded-xl p-6 card-shadow">
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('Are you sure you want to sign out?')) {
+                                                    handleLogout();
+                                                }
+                                            }}
+                                            className="w-full flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 py-3 rounded-xl ios-button"
+                                        >
+                                            <LogOutIcon />
+                                            Sign Out
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+
+                    {/* iOS Style Tab Bar */}
+                    <div className="fixed bottom-0 left-0 right-0 tab-bar px-4 py-2">
+                        <div className="flex justify-around">
+                            {[
+                                { key: 'items', label: 'Items', icon: ListIcon },
+                                { key: 'manage', label: 'Manage', icon: PackageIcon },
+                                { key: 'activity', label: 'Activity', icon: ClockIcon },
+                                ...(user?.role === 'admin' ? [{ key: 'team', label: 'Team', icon: UsersIcon }] : []),
+                                { key: 'settings', label: 'Settings', icon: GearIcon }
+                            ].map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setCurrentView(tab.key)}
+                                    className={`tab-item flex flex-col items-center py-2 px-3 rounded-lg ${
+                                        currentView === tab.key ? 'active' : 'text-gray-600'
+                                    }`}
+                                >
+                                    <tab.icon className="w-6 h-6 mb-1" />
+                                    <span className="text-xs font-medium">{tab.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Scanner Modal */}
+                    {showScanner && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white p-6 rounded-3xl max-w-md mx-4 w-full">
+                                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                    <CameraIcon />
+                                    Scan Item Barcode
+                                </h3>
+                                
+                                <div className="mb-4">
+                                    <div className="bg-gray-100 rounded-2xl p-8 text-center">
+                                        <CameraIcon className="mx-auto mb-3 w-12 h-12 text-gray-400" />
+                                        <p className="text-gray-600 mb-4">Camera simulation not available in web version</p>
+                                        <p className="text-sm text-gray-500">Use manual barcode entry below</p>
+                                    </div>
+                                </div>
+
+                                <div className="mb-4 p-4 bg-gray-50 rounded-2xl">
+                                    <h4 className="font-medium text-gray-800 mb-2">Manual Barcode Entry</h4>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder={`Enter barcode (e.g., ${company?.code || 'INV'}-000001)`}
+                                            className="flex-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && e.target.value.trim()) {
+                                                    handleScannedBarcode(e.target.value.trim());
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            onClick={(e) => {
+                                                const input = e.target.previousElementSibling;
+                                                if (input.value.trim()) {
+                                                    handleScannedBarcode(input.value.trim());
+                                                    input.value = '';
+                                                }
+                                            }}
+                                            className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 ios-button"
+                                        >
+                                            Look Up
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => setShowScanner(false)}
+                                    className="w-full bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
+                                >
+                                    Close Scanner
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Barcode Entry Modal */}
+                    {showBarcodeEntry && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white p-6 rounded-3xl max-w-md mx-4 w-full">
+                                <h3 className="text-lg font-semibold mb-4">Search by Barcode</h3>
+                                
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Barcode
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder={`e.g., ${company?.code || 'INV'}-000001`}
+                                        className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && e.target.value.trim()) {
+                                                handleScannedBarcode(e.target.value.trim());
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                    />
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={(e) => {
+                                            const input = e.target.parentElement.previousElementSibling.querySelector('input');
+                                            if (input.value.trim()) {
+                                                handleScannedBarcode(input.value.trim());
+                                                input.value = '';
+                                            }
+                                        }}
+                                        className="flex-1 bg-purple-600 text-white py-3 rounded-xl hover:bg-purple-700 ios-button"
+                                    >
+                                        Look Up
+                                    </button>
+                                    <button
+                                        onClick={() => setShowBarcodeEntry(false)}
+                                        className="flex-1 bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Item Detail Modal */}
+                    {showItemDetail && selectedItem && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                                <div className="p-6">
+                                    <div className="text-center mb-6">
+                                        <PackageIcon className="mx-auto mb-4 w-16 h-16 text-purple-600" />
+                                        <h3 className="text-xl font-bold text-gray-800">{selectedItem.name}</h3>
+                                        <p className="text-gray-600">Current Stock: <span className={selectedItem.quantity <= 5 ? 'text-orange-600' : 'text-green-600'}>{selectedItem.quantity}</span></p>
+                                    </div>
+
+                                    <div className="mb-6 p-4 bg-gray-50 rounded-2xl">
+                                        <div className="text-center">
+                                            <p className="text-sm text-gray-600 mb-2">Barcode</p>
+                                            <p className="font-mono text-lg font-semibold mb-2">{selectedItem.barcode}</p>
+                                            <div className="barcode-pattern h-12 w-full rounded"></div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="text-center">
+                                            <p className="font-medium text-gray-800 mb-4">Adjust Inventory</p>
+                                            
+                                            <div className="flex bg-gray-200 rounded-xl p-1 mb-4">
+                                                <button
+                                                    onClick={() => setAdjustAction('remove')}
+                                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                                                        adjustAction === 'remove'
+                                                            ? 'bg-white text-red-600 shadow-sm'
+                                                            : 'text-gray-600'
+                                                    }`}
+                                                >
+                                                    Remove
+                                                </button>
+                                                <button
+                                                    onClick={() => setAdjustAction('add')}
+                                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                                                        adjustAction === 'add'
+                                                            ? 'bg-white text-green-600 shadow-sm'
+                                                            : 'text-gray-600'
+                                                    }`}
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-center gap-4 mb-6">
+                                                <button 
+                                                    onClick={() => setAdjustQuantity(Math.max(1, adjustQuantity - 1))}
+                                                    className="w-10 h-10 bg-gray-200 rounded-full hover:bg-gray-300 flex items-center justify-center ios-button"
+                                                >
+                                                    <MinusIcon />
+                                                </button>
+                                                <span className="px-6 py-2 bg-gray-100 rounded-xl font-semibold text-xl min-w-[4rem] text-center">{adjustQuantity}</span>
+                                                <button 
+                                                    onClick={() => setAdjustQuantity(adjustQuantity + 1)}
+                                                    className="w-10 h-10 bg-gray-200 rounded-full hover:bg-gray-300 flex items-center justify-center ios-button"
+                                                >
+                                                    <PlusIcon />
+                                                </button>
+                                            </div>
+                                            
+                                            <button
+                                                onClick={async () => {
+                                                    const change = adjustAction === 'add' ? adjustQuantity : -adjustQuantity;
+                                                    await updateQuantity(selectedItem.id, change);
+                                                    setSelectedItem(null);
+                                                    setShowItemDetail(false);
+                                                    setAdjustQuantity(1);
+                                                    setAdjustAction('remove');
+                                                }}
+                                                disabled={adjustAction === 'remove' && adjustQuantity > selectedItem.quantity}
+                                                className={`w-full py-4 rounded-xl font-semibold ios-button ${
+                                                    adjustAction === 'add' 
+                                                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                                                        : 'bg-red-600 text-white hover:bg-red-700'
+                                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                {adjustAction === 'add' ? 'Add Items' : 'Remove Items'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setSelectedItem(null);
+                                            setShowItemDetail(false);
+                                            setAdjustQuantity(1);
+                                            setAdjustAction('remove');
+                                        }}
+                                        className="w-full mt-4 bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
+                                    >
+                                        Done
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(InventorySystem));
+
+        console.log('🎯 iOS-Style Inventory Pro System loaded successfully!');
+    </script>
+</body>
+</html>
