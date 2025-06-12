@@ -4,1651 +4,2294 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Pro - Professional Inventory Management</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .barcode-pattern {
-            background: repeating-linear-gradient(
-                90deg,
-                #000 0px, #000 2px,
-                #fff 2px, #fff 4px
-            );
+        :root {
+            --primary-color: #8B5CF6;
+            --primary-hover: #7C3AED;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --danger-color: #EF4444;
+            --info-color: #3B82F6;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --gray-700: #374151;
+            --gray-800: #1F2937;
+            --gray-900: #111827;
         }
-        .activity-scroll {
-            max-height: 400px;
-            overflow-y: auto;
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .gradient-bg {
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+            line-height: 1.6;
         }
-        .card-shadow {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        .app-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-        .ios-button {
-            transition: all 0.2s ease;
+
+        /* Authentication Styles */
+        .auth-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
         }
-        .ios-button:active {
-            transform: scale(0.95);
+
+        .auth-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(16px);
         }
-        .tab-bar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(0, 0, 0, 0.1);
+
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 30px;
         }
-        .tab-item {
-            transition: all 0.2s ease;
+
+        .auth-logo i {
+            font-size: 60px;
+            color: var(--primary-color);
+            margin-bottom: 10px;
         }
-        .tab-item.active {
-            color: #7c3aed;
+
+        .auth-logo h1 {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
+
+        .auth-logo p {
+            color: var(--gray-500);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: var(--gray-500);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-label i {
+            margin-right: 5px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-link {
+            background: none;
+            color: var(--primary-color);
+            text-decoration: none;
+            padding: 10px;
+            font-weight: 500;
+        }
+
+        .error-message {
+            color: var(--danger-color);
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .demo-info {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background: var(--gray-50);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        /* Main App Styles */
+        .main-app {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            background: white;
+        }
+
+        .main-app.active {
+            display: flex;
+        }
+
+        /* Navigation */
+        .bottom-nav {
+            display: flex;
+            background: white;
+            border-top: 1px solid var(--gray-200);
+            padding: 8px 0;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            text-decoration: none;
+            color: var(--gray-500);
+            font-size: 10px;
+            transition: color 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--primary-color);
+        }
+
+        .nav-item i {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        /* Content Area */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 80px;
+        }
+
+        .view {
+            display: none;
+            min-height: 100%;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* Header Styles */
+        .header {
+            padding: 20px;
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: var(--gray-500);
+            font-size: 14px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .header-btn {
+            padding: 8px 12px;
+            background: var(--gray-100);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .header-btn:hover {
+            background: var(--gray-200);
+        }
+
+        /* Search and Filter */
+        .search-section {
+            padding: 20px;
+            background: white;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 12px 12px 40px;
+            background: var(--gray-100);
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            background: var(--gray-100);
+            border-radius: 10px;
+            padding: 4px;
+        }
+
+        .filter-tab {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            border: none;
+            background: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-tab.active {
+            background: white;
+            color: var(--primary-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Item Cards */
+        .items-list {
+            padding: 0 20px;
+        }
+
         .item-card {
+            display: flex;
+            align-items: center;
+            padding: 16px;
             background: white;
             border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
         }
+
         .item-card:hover {
-            transform: translateY(-2px);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
+        .item-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 18px;
+            margin-right: 12px;
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .item-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .item-barcode {
+            background: var(--gray-100);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--gray-600);
+            font-family: monospace;
+        }
+
+        .item-date {
+            font-size: 10px;
+            color: var(--gray-400);
+        }
+
+        .item-quantity {
+            text-align: right;
+        }
+
+        .quantity-number {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stock-status {
+            font-size: 10px;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .in-stock {
+            color: var(--success-color);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .low-stock {
+            color: var(--warning-color);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .out-of-stock {
+            color: var(--danger-color);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            color: var(--gray-300);
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--gray-600);
+        }
+
+        .empty-state p {
+            color: var(--gray-500);
+            margin-bottom: 20px;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray-400);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* Batch Operations */
+        .batch-header {
+            padding: 20px;
+            background: white;
+        }
+
+        .batch-title-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            margin-top: 8px;
+        }
+
+        .batch-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 20px;
+        }
+
+        .batch-actions .btn {
+            margin: 0;
+        }
+
+        .batch-btn-create {
+            grid-column: 1 / -1;
+            background: var(--success-color);
+        }
+
+        .batch-btn-scan {
+            background: var(--primary-color);
+        }
+
+        .batch-btn-browse {
+            background: var(--info-color);
+        }
+
+        .batch-items {
+            padding: 0 20px;
+        }
+
+        .batch-item {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .batch-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .batch-item-name {
+            font-weight: 600;
+        }
+
+        .batch-remove {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .batch-item-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--gray-500);
+            margin-bottom: 12px;
+        }
+
+        .batch-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .batch-action-toggle {
+            display: flex;
+            background: var(--gray-200);
+            border-radius: 6px;
+            padding: 2px;
+        }
+
+        .batch-action-btn {
+            padding: 6px 12px;
+            border: none;
+            background: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .batch-action-btn.active {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .batch-quantity {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        /* Activity Log */
+        .activity-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .activity-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .activity-type {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .activity-created {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .activity-added {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--info-color);
+        }
+
+        .activity-removed {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .activity-deleted {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .activity-item-name {
+            font-weight: 600;
+        }
+
+        .activity-session {
+            color: var(--primary-color);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .activity-description {
+            color: var(--gray-600);
+            margin-bottom: 4px;
+        }
+
+        .activity-meta {
+            font-size: 12px;
+            color: var(--gray-400);
+        }
+
+        /* Team Management */
+        .user-card {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            margin-right: 12px;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .user-email {
+            color: var(--gray-500);
+            font-size: 14px;
+        }
+
+        .user-role {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--primary-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Settings */
+        .settings-section {
+            background: white;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .settings-header {
+            padding: 16px 20px;
+            background: var(--gray-50);
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-label {
+            font-weight: 500;
+        }
+
+        .settings-value {
+            color: var(--gray-500);
+            font-family: monospace;
+        }
+
+        .settings-danger {
+            color: var(--danger-color);
+            justify-content: center;
+        }
+
+        /* Loading States */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--gray-200);
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .auth-card {
+                max-width: 500px;
+                padding: 60px;
+            }
+
+            .bottom-nav {
+                display: none;
+            }
+
+            .main-app {
+                flex-direction: row;
+            }
+
+            .sidebar {
+                width: 250px;
+                background: white;
+                border-right: 1px solid var(--gray-200);
+                display: flex;
+                flex-direction: column;
+            }
+
+            .sidebar-header {
+                padding: 20px;
+                border-bottom: 1px solid var(--gray-200);
+            }
+
+            .sidebar-nav {
+                flex: 1;
+                padding: 20px 0;
+            }
+
+            .sidebar-item {
+                display: flex;
+                align-items: center;
+                padding: 12px 20px;
+                text-decoration: none;
+                color: var(--gray-600);
+                transition: all 0.2s;
+            }
+
+            .sidebar-item:hover,
+            .sidebar-item.active {
+                background: var(--gray-50);
+                color: var(--primary-color);
+            }
+
+            .sidebar-item i {
+                margin-right: 12px;
+                width: 20px;
+            }
+
+            .content {
+                padding-bottom: 0;
+            }
+
+            .items-list {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 16px;
+                padding: 20px;
+            }
+
+            .batch-actions {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .batch-btn-create {
+                grid-column: auto;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .item-card,
+        .user-card,
+        .activity-item {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Utility Classes */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .mb-4 { margin-bottom: 16px; }
+        .mt-4 { margin-top: 16px; }
+        .p-4 { padding: 16px; }
+        .hidden { display: none; }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .gap-2 { gap: 8px; }
+        .gap-4 { gap: 16px; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div class="app-container">
+        <!-- Authentication View -->
+        <div id="auth-view" class="auth-container">
+            <div class="auth-card">
+                <!-- Login Form -->
+                <div id="login-form">
+                    <div class="auth-logo">
+                        <i class="fas fa-boxes"></i>
+                        <h1>Inventory Pro</h1>
+                        <p>Professional Inventory Management</p>
+                    </div>
+                    
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <div class="form-label">
+                                <i class="fas fa-user"></i>
+                                Email
+                            </div>
+                            <input type="email" class="form-input" id="loginEmail" placeholder="user@company.com" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <div class="form-label">
+                                <i class="fas fa-lock"></i>
+                                Password
+                            </div>
+                            <input type="password" class="form-input" id="loginPassword" placeholder="Enter your password" required>
+                        </div>
+                        
+                        <div id="loginError" class="error-message" style="display: none;"></div>
+                        
+                        <button type="submit" class="btn btn-primary" id="loginBtn">
+                            <i class="fas fa-sign-in-alt"></i>
+                            Sign In
+                        </button>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <button class="btn-link" onclick="showRegistration()">Create New Company</button>
+                    </div>
+                    
+                    <div class="demo-info">
+                        Demo: demo@inventorypro.com / demo123
+                    </div>
+                </div>
+                
+                <!-- Registration Form -->
+                <div id="register-form" style="display: none;">
+                    <div class="auth-logo">
+                        <i class="fas fa-building"></i>
+                        <h1>Create Your Company</h1>
+                        <p>Set up your inventory management system</p>
+                    </div>
+                    
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <div class="form-label">
+                                <i class="fas fa-building"></i>
+                                Company Name
+                            </div>
+                            <input type="text" class="form-input" id="companyName" placeholder="Acme Corporation" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <div class="form-label">
+                                <i class="fas fa-user"></i>
+                                Admin Name
+                            </div>
+                            <input type="text" class="form-input" id="adminName" placeholder="John Doe" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <div class="form-label">
+                                <i class="fas fa-envelope"></i>
+                                Admin Email
+                            </div>
+                            <input type="email" class="form-input" id="adminEmail" placeholder="admin@company.com" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <div class="form-label">
+                                <i class="fas fa-lock"></i>
+                                Admin Password
+                            </div>
+                            <input type="password" class="form-input" id="adminPassword" placeholder="Create a strong password" required>
+                        </div>
+                        
+                        <div id="registerError" class="error-message" style="display: none;"></div>
+                        
+                        <button type="submit" class="btn btn-primary" id="registerBtn">
+                            <i class="fas fa-building"></i>
+                            Create Company
+                        </button>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <button class="btn-link" onclick="showLogin()">Already have an account? Sign In</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    <script type="text/babel">
-        const { useState, useRef, useEffect } = React;
+        <!-- Main Application -->
+        <div id="main-app" class="main-app">
+            <!-- Desktop Sidebar -->
+            <div class="sidebar" style="display: none;">
+                <div class="sidebar-header">
+                    <h2><i class="fas fa-boxes"></i> Inventory Pro</h2>
+                </div>
+                <nav class="sidebar-nav">
+                    <a href="#" class="sidebar-item active" data-view="items">
+                        <i class="fas fa-list"></i>
+                        Items
+                    </a>
+                    <a href="#" class="sidebar-item" data-view="operations">
+                        <i class="fas fa-boxes"></i>
+                        Operations
+                    </a>
+                    <a href="#" class="sidebar-item" data-view="activity">
+                        <i class="fas fa-clock"></i>
+                        Activity
+                    </a>
+                    <a href="#" class="sidebar-item" data-view="team" id="teamNavItem">
+                        <i class="fas fa-users"></i>
+                        Team
+                    </a>
+                    <a href="#" class="sidebar-item" data-view="settings">
+                        <i class="fas fa-cog"></i>
+                        Settings
+                    </a>
+                </nav>
+            </div>
 
-        // Icons (same as before)
-        const BuildingIcon = () => (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 21h18"/>
-                <path d="M5 21V7l8-4v18"/>
-                <path d="M19 21V11l-6-4"/>
-                <line x1="9" y1="9" x2="9" y2="9.01"/>
-                <line x1="9" y1="12" x2="9" y2="12.01"/>
-                <line x1="9" y1="15" x2="9" y2="15.01"/>
-                <line x1="9" y1="18" x2="9" y2="18.01"/>
-            </svg>
-        );
+            <!-- Content Area -->
+            <div class="content">
+                <!-- Items View -->
+                <div id="items-view" class="view active">
+                    <div class="header">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h1>All Items</h1>
+                                <p id="itemsStats">Loading...</p>
+                            </div>
+                            <div class="header-actions">
+                                <button class="header-btn" onclick="showBarcodeSearch()">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button class="header-btn" onclick="simulateBarcodeScan()">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="search-section">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="search-input" id="itemSearch" placeholder="Search items by name or barcode...">
+                        </div>
+                        
+                        <div class="filter-tabs">
+                            <button class="filter-tab active" data-filter="all">All Items</button>
+                            <button class="filter-tab" data-filter="low">Low Stock</button>
+                            <button class="filter-tab" data-filter="out">Out of Stock</button>
+                        </div>
+                    </div>
+                    
+                    <div id="itemsList" class="items-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
 
-        const UserIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-            </svg>
-        );
+                <!-- Operations View -->
+                <div id="operations-view" class="view">
+                    <div class="batch-header">
+                        <h1>Inventory Operations</h1>
+                        <div class="form-group">
+                            <div class="form-label">
+                                <i class="fas fa-file-text"></i>
+                                Operation Title
+                            </div>
+                            <input type="text" class="batch-title-input" id="sessionTitle" placeholder="e.g., Weekly restocking, Damaged goods removal">
+                        </div>
+                    </div>
+                    
+                    <div class="batch-actions">
+                        <button class="btn batch-btn-scan" onclick="simulateBarcodeScan()">
+                            <i class="fas fa-camera"></i>
+                            Scan Item
+                        </button>
+                        <button class="btn batch-btn-browse" onclick="showItemPicker()">
+                            <i class="fas fa-list"></i>
+                            Browse Items
+                        </button>
+                        <button class="btn batch-btn-create" onclick="showAddItem()">
+                            <i class="fas fa-plus-circle"></i>
+                            Create New Item
+                        </button>
+                    </div>
+                    
+                    <div id="batchItems" class="batch-items">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <h3>No items selected</h3>
+                            <p>Scan or browse items to add them to this operation</p>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4">
+                        <button class="btn btn-primary" id="processBatch" style="display: none;" onclick="processBatchOperation()">
+                            <i class="fas fa-check"></i>
+                            Process Operation
+                        </button>
+                    </div>
+                </div>
 
-        const UsersIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-        );
+                <!-- Activity View -->
+                <div id="activity-view" class="view">
+                    <div class="header">
+                        <h1>Activity Log</h1>
+                    </div>
+                    
+                    <div id="activityList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
 
-        const LockIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <circle cx="12" cy="16" r="1"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-        );
+                <!-- Team View -->
+                <div id="team-view" class="view">
+                    <div class="header">
+                        <div class="flex items-center justify-between">
+                            <h1>Team Management</h1>
+                            <button class="header-btn" onclick="showInviteGenerator()">
+                                <i class="fas fa-link"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="teamList" class="p-4">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
 
-        const CameraIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-            </svg>
-        );
+                <!-- Settings View -->
+                <div id="settings-view" class="view">
+                    <div class="header">
+                        <h1>Settings</h1>
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="settings-section">
+                            <div class="settings-header">Company Information</div>
+                            <div class="settings-item">
+                                <span class="settings-label">Company Name</span>
+                                <span class="settings-value" id="settingsCompanyName">Loading...</span>
+                            </div>
+                            <div class="settings-item">
+                                <span class="settings-label">Company Code</span>
+                                <span class="settings-value" id="settingsCompanyCode">Loading...</span>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-section" id="adminSettings" style="display: none;">
+                            <div class="settings-header">Inventory Settings</div>
+                            <div class="settings-item">
+                                <span class="settings-label">Default Low Stock Threshold</span>
+                                <span class="settings-value" id="settingsThreshold">5</span>
+                            </div>
+                            <button class="settings-item" onclick="showLowStockSettings()" style="border: none; background: none; width: 100%; text-align: left; cursor: pointer;">
+                                <span class="settings-label" style="color: var(--primary-color);">Configure Low Stock Alerts</span>
+                            </button>
+                        </div>
+                        
+                        <div class="settings-section">
+                            <div class="settings-header">Account</div>
+                            <div class="settings-item">
+                                <span class="settings-label">Name</span>
+                                <span class="settings-value" id="settingsUserName">Loading...</span>
+                            </div>
+                            <div class="settings-item">
+                                <span class="settings-label">Email</span>
+                                <span class="settings-value" id="settingsUserEmail">Loading...</span>
+                            </div>
+                            <div class="settings-item">
+                                <span class="settings-label">Role</span>
+                                <span class="settings-value" id="settingsUserRole">Loading...</span>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-section">
+                            <button class="settings-item settings-danger" onclick="showLogoutConfirm()" style="border: none; background: none; width: 100%; cursor: pointer;">
+                                <i class="fas fa-sign-out-alt"></i>
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        const PackageIcon = () => (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/>
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                <polyline points="3.27,6.96 12,12.01 20.73,6.96"/>
-                <line x1="12" y1="22.08" x2="12" y2="12"/>
-            </svg>
-        );
+            <!-- Mobile Bottom Navigation -->
+            <nav class="bottom-nav">
+                <a href="#" class="nav-item active" data-view="items">
+                    <i class="fas fa-list"></i>
+                    Items
+                </a>
+                <a href="#" class="nav-item" data-view="operations">
+                    <i class="fas fa-boxes"></i>
+                    Operations
+                </a>
+                <a href="#" class="nav-item" data-view="activity">
+                    <i class="fas fa-clock"></i>
+                    Activity
+                </a>
+                <a href="#" class="nav-item" data-view="team" id="teamNavItemMobile">
+                    <i class="fas fa-users"></i>
+                    Team
+                </a>
+                <a href="#" class="nav-item" data-view="settings">
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </a>
+            </nav>
+        </div>
+    </div>
 
-        const PlusIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-        );
+    <!-- Modals -->
+    <!-- Item Detail Modal -->
+    <div id="itemDetailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="itemDetailName">Item Details</h2>
+                <button class="modal-close" onclick="closeModal('itemDetailModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-boxes" style="font-size: 60px; color: var(--primary-color); margin-bottom: 12px;"></i>
+                    <h3 id="itemDetailTitle">Item Name</h3>
+                    <p id="itemDetailStock" style="font-size: 18px; font-weight: 600; margin: 8px 0;">Current Stock: 0</p>
+                    <span id="itemDetailStatus" class="stock-status">In Stock</span>
+                </div>
+                
+                <div class="mb-4 p-4" style="background: var(--gray-50); border-radius: 10px;">
+                    <div class="text-center">
+                        <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 8px;">Barcode</p>
+                        <p id="itemDetailBarcode" style="font-family: monospace; font-weight: 600;"></p>
+                        <div style="height: 60px; background: repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px); margin: 16px 0; border-radius: 4px;"></div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-4 mb-4">
+                    <button class="btn btn-primary" style="flex: 1; background: var(--info-color);" onclick="showItemActivity()">
+                        <i class="fas fa-clock"></i>
+                        Activity Log
+                    </button>
+                    <button class="btn btn-primary" style="flex: 1; background: var(--success-color);" onclick="performQuickAdjustment()">
+                        <i class="fas fa-plus-minus"></i>
+                        Quick Adjust
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 style="margin-bottom: 16px;">Adjust Inventory</h4>
+                    
+                    <div class="filter-tabs mb-4">
+                        <button class="filter-tab active" id="adjustRemove" onclick="setAdjustAction('remove')">Remove</button>
+                        <button class="filter-tab" id="adjustAdd" onclick="setAdjustAction('add')">Add</button>
+                    </div>
+                    
+                    <div class="flex items-center justify-center gap-4 mb-4">
+                        <button onclick="changeAdjustQuantity(-1)" style="background: none; border: none; font-size: 24px; cursor: pointer;">
+                            <i class="fas fa-minus-circle"></i>
+                        </button>
+                        <span id="adjustQuantity" style="font-size: 24px; font-weight: 600; min-width: 60px; text-align: center;">1</span>
+                        <button onclick="changeAdjustQuantity(1)" style="background: none; border: none; font-size: 24px; cursor: pointer;">
+                            <i class="fas fa-plus-circle"></i>
+                        </button>
+                    </div>
+                    
+                    <button class="btn btn-primary" id="performAdjust" onclick="performAdjustment()" style="background: var(--danger-color);">
+                        <i class="fas fa-minus"></i>
+                        Remove Items
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        const MinusIcon = () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-        );
+    <!-- Add Item Modal -->
+    <div id="addItemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add New Item</h2>
+                <button class="modal-close" onclick="closeModal('addItemModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addItemForm">
+                    <div class="form-group">
+                        <div class="form-label">
+                            <i class="fas fa-cube"></i>
+                            Item Name
+                        </div>
+                        <input type="text" class="form-input" id="newItemName" placeholder="Enter item name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="form-label">
+                            <i class="fas fa-sort-numeric-up"></i>
+                            Initial Quantity
+                        </div>
+                        <input type="number" class="form-input" id="newItemQuantity" value="1" min="0" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Create Item
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        const TrashIcon = () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="3,6 5,6 21,6"/>
-                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
-                <line x1="10" y1="11" x2="10" y2="17"/>
-                <line x1="14" y1="11" x2="14" y2="17"/>
-            </svg>
-        );
+    <!-- Item Picker Modal -->
+    <div id="itemPickerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Select Item</h2>
+                <button class="modal-close" onclick="closeModal('itemPickerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-box mb-4">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="search-input" id="pickerSearch" placeholder="Search items...">
+                </div>
+                <div id="pickerItemsList"></div>
+            </div>
+        </div>
+    </div>
 
-        const SearchIcon = () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="M21 21l-4.35-4.35"/>
-            </svg>
-        );
+    <!-- Barcode Search Modal -->
+    <div id="barcodeSearchModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Enter Barcode Manually</h2>
+                <button class="modal-close" onclick="closeModal('barcodeSearchModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <div class="form-label">
+                        <i class="fas fa-barcode"></i>
+                        Barcode
+                    </div>
+                    <input type="text" class="form-input" id="manualBarcode" placeholder="e.g., INV-000001">
+                </div>
+                <button class="btn btn-primary" onclick="searchByBarcode()">
+                    <i class="fas fa-search"></i>
+                    Look Up
+                </button>
+            </div>
+        </div>
+    </div>
 
-        const ClockIcon = () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12,6 12,12 16,14"/>
-            </svg>
-        );
+    <!-- Invite Generator Modal -->
+    <div id="inviteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Generate Invite Link</h2>
+                <button class="modal-close" onclick="closeModal('inviteModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-link" style="font-size: 60px; color: var(--primary-color); margin-bottom: 12px;"></i>
+                    <h3>Generate Invite Link</h3>
+                    <p style="color: var(--gray-500);">Create a secure invitation link for new team members</p>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 style="margin-bottom: 12px;">Select Role</h4>
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" id="roleUser" onclick="selectRole('user')">User</button>
+                        <button class="filter-tab" id="roleAdmin" onclick="selectRole('admin')">Administrator</button>
+                    </div>
+                </div>
+                
+                <div id="inviteGenerated" style="display: none;">
+                    <div class="p-4 mb-4" style="background: var(--gray-50); border-radius: 10px;">
+                        <h4 style="color: var(--success-color); margin-bottom: 8px;">Invitation Ready!</h4>
+                        <p style="font-size: 12px; margin-bottom: 8px;">Share this link:</p>
+                        <p id="generatedLink" style="font-size: 12px; background: var(--gray-100); padding: 8px; border-radius: 4px; word-break: break-all;"></p>
+                    </div>
+                    <button class="btn btn-primary" onclick="copyInviteLink()">
+                        <i class="fas fa-copy"></i>
+                        Copy Link
+                    </button>
+                </div>
+                
+                <button class="btn btn-primary" id="generateInvite" onclick="generateInviteLink()">
+                    <i class="fas fa-link"></i>
+                    Generate Invite Link
+                </button>
+            </div>
+        </div>
+    </div>
 
-        const LogOutIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16,17 21,12 16,7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-        );
-
-        const SettingsIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v6m0 6v6m11-11h-6m-6 0H1"/>
-                <path d="M20.49 9.58L16.42 5.51M5.51 16.42L9.58 20.49M20.49 14.42L16.42 18.49M5.51 7.58L9.58 3.51"/>
-            </svg>
-        );
-
-        const CheckIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12"/>
-            </svg>
-        );
-
-        const ListIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="8" y1="6" x2="21" y2="6"/>
-                <line x1="8" y1="12" x2="21" y2="12"/>
-                <line x1="8" y1="18" x2="21" y2="18"/>
-                <line x1="3" y1="6" x2="3.01" y2="6"/>
-                <line x1="3" y1="12" x2="3.01" y2="12"/>
-                <line x1="3" y1="18" x2="3.01" y2="18"/>
-            </svg>
-        );
-
-        const GearIcon = () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v6m0 6v6m11-11h-6m-6 0H1"/>
-                <path d="M20.49 9.58L16.42 5.51M5.51 16.42L9.58 20.49M20.49 14.42L16.42 18.49M5.51 7.58L9.58 3.51"/>
-            </svg>
-        );
+    <script>
+        // Application State
+        let appState = {
+            isAuthenticated: false,
+            currentUser: null,
+            currentCompany: null,
+            items: [],
+            activities: [],
+            users: [],
+            batchItems: [],
+            currentFilter: 'all',
+            currentView: 'items',
+            adjustAction: 'remove',
+            adjustQuantity: 1,
+            selectedItem: null,
+            inviteRole: 'user'
+        };
 
         // API Configuration
-	const API_BASE_URL = "https://shimmering-perfection-production.up.railway.app";
-        const apiRequest = async (endpoint, options = {}) => {
-            const token = sessionStorage.getItem('authToken');
-            const config = {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                    ...options.headers,
-                },
-                ...options,
-            };
+        const API_BASE = 'https://shimmering-perfection-production.up.railway.app';
 
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+            setupEventListeners();
+            
+            // Check for responsive design
+            if (window.innerWidth >= 768) {
+                document.querySelector('.sidebar').style.display = 'flex';
+            }
+        });
+
+        // Authentication Functions
+        function checkAuthStatus() {
+            const token = localStorage.getItem('authToken');
+            const userData = localStorage.getItem('currentUser');
+            const companyData = localStorage.getItem('currentCompany');
+            
+            if (token && userData && companyData) {
+                appState.currentUser = JSON.parse(userData);
+                appState.currentCompany = JSON.parse(companyData);
+                appState.isAuthenticated = true;
+                showMainApp();
+                loadData();
+                updateUI();
+            } else {
+                showAuthView();
+            }
+        }
+
+        function showAuthView() {
+            document.getElementById('auth-view').style.display = 'flex';
+            document.getElementById('main-app').classList.remove('active');
+        }
+
+        function showMainApp() {
+            document.getElementById('auth-view').style.display = 'none';
+            document.getElementById('main-app').classList.add('active');
+        }
+
+        function showLogin() {
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('register-form').style.display = 'none';
+        }
+
+        function showRegistration() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+        }
+
+        async function login(email, password) {
             try {
-                console.log(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
-                const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-                
-                let data;
-                try {
-                    data = await response.json();
-                } catch (jsonError) {
-                    throw new Error('Invalid server response');
-                }
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
 
                 if (!response.ok) {
-                    console.error('❌ API Error:', data.error);
-                    throw new Error(data.error || `HTTP ${response.status}`);
+                    throw new Error('Login failed');
                 }
 
-                console.log(`✅ API Success: ${endpoint}`);
-                return data;
+                const data = await response.json();
+                
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
+                localStorage.setItem('currentCompany', JSON.stringify(data.company));
+                
+                appState.currentUser = data.user;
+                appState.currentCompany = data.company;
+                appState.isAuthenticated = true;
+                
+                showMainApp();
+                loadData();
+                updateUI();
+                
             } catch (error) {
-                console.error('🔥 Network Error:', error.message);
-                throw error;
-            }
-        };
-
-        // API Functions
-        const API = {
-            // Company Management
-            registerCompany: async (companyName, adminEmail, adminPassword, adminName) => {
-                return await apiRequest('/api/companies/register', {
-                    method: 'POST',
-                    body: JSON.stringify({ companyName, adminEmail, adminPassword, adminName }),
-                });
-            },
-
-            getCompanyInfo: async () => {
-                return await apiRequest('/api/companies/info');
-            },
-
-            // User Management
-            inviteUser: async (email, name, role) => {
-                return await apiRequest('/api/users/invite', {
-                    method: 'POST',
-                    body: JSON.stringify({ email, name, role }),
-                });
-            },
-
-            getUsers: async () => {
-                return await apiRequest('/api/users');
-            },
-
-            deleteUser: async (userId) => {
-                return await apiRequest('/api/users/delete', {
-                    method: 'DELETE',
-                    body: JSON.stringify({ userId }),
-                });
-            },
-
-            // Authentication
-            login: async (email, password) => {
-                return await apiRequest('/api/auth/login', {
-                    method: 'POST',
-                    body: JSON.stringify({ email, password }),
-                });
-            },
-
-            // Items
-            createItem: async (name, quantity, barcode) => {
-                return await apiRequest('/api/items', {
-                    method: 'POST',
-                    body: JSON.stringify({ name, quantity, barcode }),
-                });
-            },
-
-            updateItem: async (id, quantity) => {
-                return await apiRequest('/api/items', {
-                    method: 'PUT',
-                    body: JSON.stringify({ id, quantity }),
-                });
-            },
-
-            deleteItem: async (id) => {
-                return await apiRequest('/api/items', {
-                    method: 'DELETE',
-                    body: JSON.stringify({ id }),
-                });
-            },
-
-            getItems: async () => {
-                return await apiRequest('/api/items');
-            },
-
-            findItemByBarcode: async (barcode) => {
-                try {
-                    return await apiRequest(`/api/items/search?barcode=${encodeURIComponent(barcode)}`);
-                } catch (error) {
-                    if (error.message.includes('not found')) {
-                        return null;
-                    }
+                // For demo purposes, allow demo login
+                if (email === 'demo@inventorypro.com' && password === 'demo123') {
+                    const demoUser = {
+                        id: 'demo-user',
+                        name: 'Demo User',
+                        email: 'demo@inventorypro.com',
+                        role: 'admin'
+                    };
+                    const demoCompany = {
+                        id: 'demo-company',
+                        name: 'Demo Company',
+                        code: 'DEMO',
+                        lowStockThreshold: 5
+                    };
+                    
+                    localStorage.setItem('authToken', 'demo-token');
+                    localStorage.setItem('currentUser', JSON.stringify(demoUser));
+                    localStorage.setItem('currentCompany', JSON.stringify(demoCompany));
+                    
+                    appState.currentUser = demoUser;
+                    appState.currentCompany = demoCompany;
+                    appState.isAuthenticated = true;
+                    
+                    showMainApp();
+                    loadDemoData();
+                    updateUI();
+                } else {
                     throw error;
                 }
-            },
+            }
+        }
 
-            // Activities
-            getActivities: async () => {
-                return await apiRequest('/api/activities');
-            },
+        function logout() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('currentCompany');
+            
+            appState.isAuthenticated = false;
+            appState.currentUser = null;
+            appState.currentCompany = null;
+            appState.items = [];
+            appState.activities = [];
+            appState.users = [];
+            
+            showAuthView();
+        }
 
-            // Test email
-            testEmailConfiguration: async () => {
-                try {
-                    const response = await apiRequest('/api/test/email', {
-                        method: 'POST',
-                        body: JSON.stringify({ testType: 'email_config' }),
-                    });
-                    return response.emailConfigured;
-                } catch (error) {
-                    return false;
+        // Data Loading Functions
+        async function loadData() {
+            try {
+                await Promise.all([
+                    loadItems(),
+                    loadActivities(),
+                    loadUsers()
+                ]);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                loadDemoData();
+            }
+        }
+
+        function loadDemoData() {
+            // Demo items
+            appState.items = [
+                {
+                    id: '1',
+                    name: 'Office Chair',
+                    quantity: 15,
+                    barcode: 'DEMO-001',
+                    lowStockThreshold: 5,
+                    updatedAt: new Date().toISOString()
+                },
+                {
+                    id: '2',
+                    name: 'Laptop Computer',
+                    quantity: 3,
+                    barcode: 'DEMO-002',
+                    lowStockThreshold: 5,
+                    updatedAt: new Date().toISOString()
+                },
+                {
+                    id: '3',
+                    name: 'Printer Paper',
+                    quantity: 0,
+                    barcode: 'DEMO-003',
+                    lowStockThreshold: 10,
+                    updatedAt: new Date().toISOString()
+                },
+                {
+                    id: '4',
+                    name: 'Wireless Mouse',
+                    quantity: 25,
+                    barcode: 'DEMO-004',
+                    lowStockThreshold: 5,
+                    updatedAt: new Date().toISOString()
                 }
-            },
-        };
+            ];
 
-        const InventorySystem = () => {
-            // Authentication state
-            const [user, setUser] = useState(null);
-            const [company, setCompany] = useState(null);
-            const [authView, setAuthView] = useState('login'); // 'login', 'register'
-            const [authLoading, setAuthLoading] = useState(false);
-            const [refreshID, setRefreshID] = useState(0);
-            
-            // Main app state
-            const [currentView, setCurrentView] = useState('items');
-            const [items, setItems] = useState([]);
-            const [activities, setActivities] = useState([]);
-            const [companyUsers, setCompanyUsers] = useState([]);
-            const [showAddForm, setShowAddForm] = useState(false);
-            const [showScanner, setShowScanner] = useState(false);
-            const [showInviteUser, setShowInviteUser] = useState(false);
-            const [newItem, setNewItem] = useState({ name: '', quantity: 1 });
-            const [scanResult, setScanResult] = useState('');
-            const [selectedItem, setSelectedItem] = useState(null);
-            const [adjustQuantity, setAdjustQuantity] = useState(1);
-            const [adjustAction, setAdjustAction] = useState('remove');
-            const [showItemDetail, setShowItemDetail] = useState(false);
-            const [itemsFilter, setItemsFilter] = useState('all');
-            const [itemsSearch, setItemsSearch] = useState('');
-            const [showBarcodeEntry, setShowBarcodeEntry] = useState(false);
-            const [isLoading, setIsLoading] = useState(false);
-            
-            // Auth form state
-            const [authForm, setAuthForm] = useState({ 
-                email: '', 
-                password: '', 
-                name: '', 
-                companyName: '',
-                companySize: 'small'
+            // Demo activities
+            appState.activities = [
+                {
+                    id: '1',
+                    itemName: 'Office Chair',
+                    type: 'created',
+                    quantity: 15,
+                    userName: 'Demo User',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: '2',
+                    itemName: 'Laptop Computer',
+                    type: 'removed',
+                    quantity: 2,
+                    oldQuantity: 5,
+                    userName: 'Demo User',
+                    createdAt: new Date(Date.now() - 86400000).toISOString(),
+                    sessionTitle: 'Equipment Distribution'
+                }
+            ];
+
+            // Demo users
+            appState.users = [
+                {
+                    id: 'demo-user',
+                    name: 'Demo User',
+                    email: 'demo@inventorypro.com',
+                    role: 'admin',
+                    createdAt: new Date().toISOString()
+                }
+            ];
+
+            updateUI();
+        }
+
+        async function loadItems() {
+            const response = await fetch(`${API_BASE}/api/items`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
             });
+            
+            if (response.ok) {
+                appState.items = await response.json();
+            }
+        }
 
-            // Invite user form
-            const [inviteForm, setInviteForm] = useState({
-                email: '',
-                name: '',
-                role: 'user'
+        async function loadActivities() {
+            const response = await fetch(`${API_BASE}/api/activities`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
             });
             
-            // Check for existing session on load
-            useEffect(() => {
-                const token = sessionStorage.getItem('authToken');
-                const userData = sessionStorage.getItem('currentUser');
-                const companyData = sessionStorage.getItem('currentCompany');
+            if (response.ok) {
+                appState.activities = await response.json();
+            }
+        }
+
+        async function loadUsers() {
+            if (appState.currentUser?.role === 'admin') {
+                const response = await fetch(`${API_BASE}/api/users`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
                 
-                if (token && userData) {
-                    const parsedUser = JSON.parse(userData);
-                    const parsedCompany = companyData ? JSON.parse(companyData) : null;
-                    setUser(parsedUser);
-                    setCompany(parsedCompany);
-                    loadAppData();
+                if (response.ok) {
+                    appState.users = await response.json();
                 }
-            }, []);
+            }
+        }
 
-            // Load all app data
-            const loadAppData = async () => {
-                setIsLoading(true);
-                try {
-                    console.log('📊 Loading company data...');
-                    
-                    const [itemsData, activitiesData, companyInfo] = await Promise.all([
-                        API.getItems(),
-                        API.getActivities(),
-                        API.getCompanyInfo()
-                    ]);
+        // UI Update Functions
+        function updateUI() {
+            updateItemsList();
+            updateActivityList();
+            updateTeamList();
+            updateSettings();
+            updateBatchItems();
+            updateStats();
+            
+            // Show/hide team navigation based on role
+            const isAdmin = appState.currentUser?.role === 'admin';
+            document.getElementById('teamNavItem').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('teamNavItemMobile').style.display = isAdmin ? 'flex' : 'none';
+            document.getElementById('adminSettings').style.display = isAdmin ? 'block' : 'none';
+        }
 
-                    setItems(itemsData || []);
-                    setActivities(activitiesData || []);
-                    setCompany(companyInfo.company);
-                    sessionStorage.setItem('currentCompany', JSON.stringify(companyInfo.company));
+        function updateStats() {
+            const totalItems = appState.items.length;
+            const totalUnits = appState.items.reduce((sum, item) => sum + item.quantity, 0);
+            
+            if (totalItems === 0) {
+                document.getElementById('itemsStats').textContent = 'No items in your inventory';
+            } else {
+                document.getElementById('itemsStats').textContent = `${totalItems} items · ${totalUnits} total units`;
+            }
+        }
 
-                    // Load users if admin
-                    if (user?.role === 'admin') {
-                        const users = await API.getUsers();
-                        setCompanyUsers(users || []);
-                    }
-                    
-                    console.log(`✅ Loaded company data successfully`);
-                } catch (error) {
-                    console.error('❌ Failed to load app data:', error.message);
-                    // If unauthorized, logout
-                    if (error.message.includes('401') || error.message.includes('403')) {
-                        handleLogout();
-                    }
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            // Handle company registration
-            const handleCompanyRegister = async (e) => {
-                e.preventDefault();
-                setAuthLoading(true);
-                
-                try {
-                    const result = await API.registerCompany(
-                        authForm.companyName,
-                        authForm.email,
-                        authForm.password,
-                        authForm.name
-                    );
-                    
-                    if (result.success) {
-                        sessionStorage.setItem('authToken', result.token);
-                        sessionStorage.setItem('currentUser', JSON.stringify(result.user));
-                        sessionStorage.setItem('currentCompany', JSON.stringify(result.company));
-                        setUser(result.user);
-                        setCompany(result.company);
-                        setAuthForm({ email: '', password: '', name: '', companyName: '', companySize: 'small' });
-                        setRefreshID(prev => prev + 1);
-                        await loadAppData();
-                    }
-                } catch (error) {
-                    alert('Registration failed: ' + error.message);
-                } finally {
-                    setAuthLoading(false);
-                }
-            };
-
-            // Handle login
-            const handleLogin = async (e) => {
-                e.preventDefault();
-                setAuthLoading(true);
-                
-                try {
-                    const result = await API.login(authForm.email, authForm.password);
-                    
-                    if (result.success) {
-                        sessionStorage.setItem('authToken', result.token);
-                        sessionStorage.setItem('currentUser', JSON.stringify(result.user));
-                        sessionStorage.setItem('currentCompany', JSON.stringify(result.company));
-                        setUser(result.user);
-                        setCompany(result.company);
-                        setAuthForm({ email: '', password: '', name: '', companyName: '', companySize: 'small' });
-                        setRefreshID(prev => prev + 1);
-                        await loadAppData();
-                    }
-                } catch (error) {
-                    alert('Login failed: ' + error.message);
-                } finally {
-                    setAuthLoading(false);
-                }
-            };
-
-            // Handle logout
-            const handleLogout = () => {
-                setUser(null);
-                setCompany(null);
-                setItems([]);
-                setActivities([]);
-                setCompanyUsers([]);
-                sessionStorage.removeItem('authToken');
-                sessionStorage.removeItem('currentUser');
-                sessionStorage.removeItem('currentCompany');
-                setCurrentView('items');
-                setAuthView('login');
-                setRefreshID(prev => prev + 1);
-            };
-
-            // Invite user
-            const handleInviteUser = async (e) => {
-                e.preventDefault();
-                
-                try {
-                    const result = await API.inviteUser(
-                        inviteForm.email,
-                        inviteForm.name,
-                        inviteForm.role
-                    );
-                    
-                    if (result.success) {
-                        alert(`Invitation sent to ${inviteForm.email}`);
-                        setInviteForm({ email: '', name: '', role: 'user' });
-                        setShowInviteUser(false);
-                        
-                        // Reload users
-                        const users = await API.getUsers();
-                        setCompanyUsers(users);
-                    }
-                } catch (error) {
-                    alert('Failed to invite user: ' + error.message);
-                }
-            };
-
-            // Delete user
-            const handleDeleteUser = async (userId) => {
-                if (!confirm('Are you sure you want to remove this user?')) return;
-                
-                try {
-                    await API.deleteUser(userId);
-                    const users = await API.getUsers();
-                    setCompanyUsers(users);
-                } catch (error) {
-                    alert('Failed to delete user: ' + error.message);
-                }
-            };
-
-            // Generate barcode
-            const generateBarcode = () => {
-                const companyCode = company?.code || 'INV';
-                const timestamp = Date.now();
-                return `${companyCode}-${timestamp.toString().slice(-6)}`;
-            };
-
-            // Add new item
-            const addItem = async () => {
-                if (!newItem.name.trim()) {
-                    alert('Please enter an item name');
-                    return;
-                }
-                
-                try {
-                    const barcode = generateBarcode();
-                    
-                    const item = await API.createItem(
-                        newItem.name.trim(),
-                        parseInt(newItem.quantity) || 1,
-                        barcode
-                    );
-                    
-                    await loadAppData();
-                    setNewItem({ name: '', quantity: 1 });
-                    setShowAddForm(false);
-                    
-                    alert('Item created successfully!');
-                    
-                } catch (error) {
-                    console.error('❌ Failed to create item:', error.message);
-                    alert('Failed to create item: ' + error.message);
-                }
-            };
-
-            // Update item quantity
-            const updateQuantity = async (id, change) => {
-                try {
-                    const item = items.find(i => i.id === id);
-                    if (!item) return;
-                    
-                    const newQuantity = Math.max(0, item.quantity + change);
-                    
-                    await API.updateItem(id, newQuantity);
-                    await loadAppData();
-                    
-                } catch (error) {
-                    console.error('❌ Failed to update item:', error.message);
-                    alert('Failed to update item: ' + error.message);
-                }
-            };
-
-            // Delete item
-            const deleteItem = async (id) => {
-                try {
-                    const item = items.find(i => i.id === id);
-                    if (!item) return;
-                    
-                    const confirmed = confirm(`Are you sure you want to delete "${item.name}"?`);
-                    if (!confirmed) return;
-                    
-                    await API.deleteItem(id);
-                    await loadAppData();
-                    
-                } catch (error) {
-                    console.error('❌ Failed to delete item:', error.message);
-                    alert('Failed to delete item: ' + error.message);
-                }
-            };
-
-            // Handle scanned barcode
-            const handleScannedBarcode = async (barcode) => {
-                try {
-                    const foundItem = await API.findItemByBarcode(barcode.trim());
-                    
-                    if (foundItem) {
-                        setSelectedItem(foundItem);
-                        setShowItemDetail(true);
-                        setScanResult(`Found: ${foundItem.name}`);
-                    } else {
-                        setScanResult('Item not found');
-                        alert('Item not found for barcode: ' + barcode);
-                    }
-                } catch (error) {
-                    setScanResult('Error scanning item: ' + error.message);
-                    alert('Error scanning item: ' + error.message);
-                }
-                setShowScanner(false);
-                setShowBarcodeEntry(false);
-            };
-
-            // Format date
-            const formatDate = (dateString) => {
-                if (!dateString) return 'N/A';
-                try {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                } catch {
-                    return dateString;
-                }
-            };
-
-            // Filter items
-            const getFilteredItems = () => {
-                let filtered = items;
-
-                if (itemsSearch.trim()) {
-                    filtered = filtered.filter(item => 
-                        item.name.toLowerCase().includes(itemsSearch.toLowerCase()) ||
-                        item.barcode.toLowerCase().includes(itemsSearch.toLowerCase())
-                    );
-                }
-
-                switch (itemsFilter) {
-                    case 'lowStock':
-                        filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
-                        break;
-                    case 'outOfStock':
-                        filtered = filtered.filter(item => item.quantity === 0);
-                        break;
-                }
-
-                return filtered;
-            };
-
-            // If not logged in, show auth screen
-            if (!user) {
-                return (
-                    <div key={refreshID} className="min-h-screen gradient-bg flex items-center justify-center p-4">
-                        {authView === 'register' ? (
-                            // Company Registration
-                            <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl">
-                                <div className="text-center mb-8">
-                                    <div className="mx-auto w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center mb-4">
-                                        <BuildingIcon className="w-10 h-10 text-white" />
-                                    </div>
-                                    <h1 className="text-3xl font-bold text-gray-800">Start Your Free Trial</h1>
-                                    <p className="text-gray-600 mt-2">Professional inventory management for your business</p>
-                                </div>
-
-                                <form onSubmit={handleCompanyRegister}>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Company Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={authForm.companyName}
-                                                onChange={(e) => setAuthForm({...authForm, companyName: e.target.value})}
-                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                placeholder="Acme Corporation"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Company Size
-                                            </label>
-                                            <select
-                                                value={authForm.companySize}
-                                                onChange={(e) => setAuthForm({...authForm, companySize: e.target.value})}
-                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                            >
-                                                <option value="small">1-10 employees</option>
-                                                <option value="medium">11-50 employees</option>
-                                                <option value="large">51-200 employees</option>
-                                                <option value="enterprise">200+ employees</option>
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Admin Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={authForm.name}
-                                                onChange={(e) => setAuthForm({...authForm, name: e.target.value})}
-                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                placeholder="John Doe"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Admin Email
-                                            </label>
-                                            <input
-                                                type="email"
-                                                value={authForm.email}
-                                                onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
-                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                placeholder="admin@company.com"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Admin Password
-                                            </label>
-                                            <input
-                                                type="password"
-                                                value={authForm.password}
-                                                onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
-                                                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                placeholder="Create a strong password"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-purple-50 p-4 rounded-xl mb-6">
-                                        <h3 className="font-semibold text-purple-800 mb-2">✨ What's Included:</h3>
-                                        <ul className="text-sm text-purple-700 space-y-1">
-                                            <li>✓ 30-day free trial - no credit card required</li>
-                                            <li>✓ Unlimited users and inventory items</li>
-                                            <li>✓ Real-time barcode scanning</li>
-                                            <li>✓ Multi-location support</li>
-                                            <li>✓ Analytics and reporting</li>
-                                            <li>✓ 24/7 customer support</li>
-                                        </ul>
-                                    </div>
-
-                                    <button
-                                        type="submit"
-                                        disabled={authLoading}
-                                        className="w-full bg-purple-600 text-white py-4 rounded-xl hover:bg-purple-700 disabled:opacity-50 font-semibold ios-button"
-                                    >
-                                        {authLoading ? 'Creating Account...' : 'Start Free Trial'}
-                                    </button>
-                                </form>
-
-                                <div className="mt-6 text-center">
-                                    <p className="text-gray-600">
-                                        Already have an account?{' '}
-                                        <button
-                                            onClick={() => setAuthView('login')}
-                                            className="text-purple-600 hover:text-purple-800 font-medium"
-                                        >
-                                            Sign In
-                                        </button>
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            // Login View
-                            <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
-                                <div className="text-center mb-8">
-                                    <div className="mx-auto w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center mb-4">
-                                        <PackageIcon className="w-10 h-10 text-white" />
-                                    </div>
-                                    <h1 className="text-3xl font-bold text-gray-800">Inventory Pro</h1>
-                                    <p className="text-gray-600 mt-2">Professional Inventory Management</p>
-                                </div>
-
-                                <form onSubmit={handleLogin}>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Email
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={authForm.email}
-                                            onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
-                                            className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                            placeholder="user@company.com"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Password
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={authForm.password}
-                                            onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
-                                            className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                            placeholder="Enter your password"
-                                            required
-                                        />
-                                    </div>
-
-                                    <button
-                                        type="submit"
-                                        disabled={authLoading}
-                                        className="w-full bg-purple-600 text-white py-4 rounded-xl hover:bg-purple-700 disabled:opacity-50 font-semibold ios-button"
-                                    >
-                                        {authLoading ? 'Signing in...' : 'Sign In'}
-                                    </button>
-                                </form>
-
-                                <div className="mt-6 text-center">
-                                    <p className="text-gray-600 mb-4">
-                                        New to Inventory Pro?{' '}
-                                        <button
-                                            onClick={() => setAuthView('register')}
-                                            className="text-purple-600 hover:text-purple-800 font-medium"
-                                        >
-                                            Start Free Trial
-                                        </button>
-                                    </p>
-                                    
-                                    <div className="pt-4 border-t">
-                                        <p className="text-sm text-gray-500">
-                                            Demo: demo@inventorypro.com / demo123
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+        function updateItemsList() {
+            const container = document.getElementById('itemsList');
+            const filteredItems = getFilteredItems();
+            
+            if (filteredItems.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-${appState.currentFilter === 'all' ? 'boxes' : 'search'}"></i>
+                        <h3>${appState.currentFilter === 'all' ? 'No items yet' : 'No items found'}</h3>
+                        <p>${appState.currentFilter === 'all' ? 'Add your first item to get started' : 'Try adjusting your search or filter'}</p>
+                        ${appState.currentFilter === 'all' ? '<button class="btn btn-primary" onclick="showAddItem()"><i class="fas fa-plus"></i> Add Your First Item</button>' : ''}
                     </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredItems.map(item => `
+                <div class="item-card" onclick="showItemDetail('${item.id}')">
+                    <div class="item-icon">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <div class="item-info">
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-meta">
+                            <span class="item-barcode">${item.barcode}</span>
+                            <span class="item-date">${formatDate(item.updatedAt)}</span>
+                        </div>
+                    </div>
+                    <div class="item-quantity">
+                        <div class="quantity-number ${getStockClass(item)}">${item.quantity}</div>
+                        <div class="stock-status ${getStockClass(item)}">${getStockStatus(item)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateActivityList() {
+            const container = document.getElementById('activityList');
+            
+            if (appState.activities.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-clock"></i>
+                        <h3>No activity recorded yet</h3>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = appState.activities.map(activity => `
+                <div class="activity-item">
+                    <div class="activity-header">
+                        <span class="activity-type activity-${activity.type}">${activity.type.toUpperCase()}</span>
+                        <span class="activity-item-name">${activity.itemName}</span>
+                    </div>
+                    ${activity.sessionTitle ? `<div class="activity-session">📋 ${activity.sessionTitle}</div>` : ''}
+                    <div class="activity-description">${getActivityDescription(activity)}</div>
+                    <div class="activity-meta">By ${activity.userName} • ${formatDate(activity.createdAt)}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateTeamList() {
+            const container = document.getElementById('teamList');
+            
+            if (appState.users.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <h3>No team members yet</h3>
+                        <button class="btn btn-primary" onclick="showInviteGenerator()">
+                            <i class="fas fa-link"></i>
+                            Generate Invite Link
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = appState.users.map(user => `
+                <div class="user-card">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">${user.name}</div>
+                        <div class="user-email">${user.email}</div>
+                    </div>
+                    <div class="user-role">${user.role === 'admin' ? 'Administrator' : 'User'}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateSettings() {
+            if (appState.currentCompany) {
+                document.getElementById('settingsCompanyName').textContent = appState.currentCompany.name;
+                document.getElementById('settingsCompanyCode').textContent = appState.currentCompany.code;
+                document.getElementById('settingsThreshold').textContent = appState.currentCompany.lowStockThreshold || 5;
+            }
+            
+            if (appState.currentUser) {
+                document.getElementById('settingsUserName').textContent = appState.currentUser.name;
+                document.getElementById('settingsUserEmail').textContent = appState.currentUser.email;
+                document.getElementById('settingsUserRole').textContent = appState.currentUser.role === 'admin' ? 'Administrator' : 'User';
+            }
+        }
+
+        function updateBatchItems() {
+            const container = document.getElementById('batchItems');
+            const processBtn = document.getElementById('processBatch');
+            
+            if (appState.batchItems.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h3>No items selected</h3>
+                        <p>Scan or browse items to add them to this operation</p>
+                    </div>
+                `;
+                processBtn.style.display = 'none';
+                return;
+            }
+            
+            container.innerHTML = appState.batchItems.map((batchItem, index) => `
+                <div class="batch-item">
+                    <div class="batch-item-header">
+                        <span class="batch-item-name">${batchItem.item.name}</span>
+                        <button class="batch-remove" onclick="removeBatchItem(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="batch-item-meta">
+                        <span>Current: ${batchItem.item.quantity}</span>
+                        <span>${batchItem.item.barcode}</span>
+                    </div>
+                    <div class="batch-controls">
+                        <div class="batch-action-toggle">
+                            <button class="batch-action-btn ${batchItem.action === 'add' ? 'active' : ''}" onclick="setBatchAction(${index}, 'add')">Add</button>
+                            <button class="batch-action-btn ${batchItem.action === 'remove' ? 'active' : ''}" onclick="setBatchAction(${index}, 'remove')">Remove</button>
+                        </div>
+                        <input type="number" class="batch-quantity" value="${batchItem.quantityChange}" min="0" onchange="setBatchQuantity(${index}, this.value)">
+                        <span style="font-size: 12px; color: var(--gray-500);">items</span>
+                    </div>
+                </div>
+            `).join('');
+            
+            processBtn.style.display = 'block';
+            processBtn.innerHTML = `<i class="fas fa-check"></i> Process Operation (${appState.batchItems.length} items)`;
+        }
+
+        // Helper Functions
+        function getFilteredItems() {
+            let filtered = appState.items;
+            
+            // Apply search filter
+            const searchTerm = document.getElementById('itemSearch')?.value.toLowerCase() || '';
+            if (searchTerm) {
+                filtered = filtered.filter(item => 
+                    item.name.toLowerCase().includes(searchTerm) || 
+                    item.barcode.toLowerCase().includes(searchTerm)
                 );
             }
+            
+            // Apply stock filter
+            switch (appState.currentFilter) {
+                case 'low':
+                    filtered = filtered.filter(item => isLowStock(item));
+                    break;
+                case 'out':
+                    filtered = filtered.filter(item => isOutOfStock(item));
+                    break;
+            }
+            
+            return filtered;
+        }
 
-            // Main app interface (iOS style)
-            return (
-                <div key={refreshID} className="min-h-screen bg-gray-100 pb-20">
-                    {/* Header */}
-                    <div className="bg-white shadow-sm border-b sticky top-0 z-40">
-                        <div className="px-4 py-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
-                                        <PackageIcon className="text-white w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-xl font-bold text-gray-800">Inventory Pro</h1>
-                                        <p className="text-sm text-gray-600">{company?.name}</p>
-                                    </div>
-                                </div>
-                                
-                                <button
-                                    onClick={handleLogout}
-                                    className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors ios-button"
-                                >
-                                    <LogOutIcon />
-                                </button>
-                            </div>
+        function isLowStock(item) {
+            const threshold = item.lowStockThreshold || appState.currentCompany?.lowStockThreshold || 5;
+            return item.quantity <= threshold && item.quantity > 0;
+        }
+
+        function isOutOfStock(item) {
+            return item.quantity <= 0;
+        }
+
+        function getStockClass(item) {
+            if (isOutOfStock(item)) return 'out-of-stock';
+            if (isLowStock(item)) return 'low-stock';
+            return 'in-stock';
+        }
+
+        function getStockStatus(item) {
+            if (isOutOfStock(item)) return 'Out of Stock';
+            if (isLowStock(item)) return 'Low Stock';
+            return 'In Stock';
+        }
+
+        function getActivityDescription(activity) {
+            switch (activity.type) {
+                case 'created':
+                    return `Created with initial quantity of ${activity.quantity}`;
+                case 'added':
+                    return `Added ${activity.quantity} items (was ${activity.oldQuantity})`;
+                case 'removed':
+                    return `Removed ${activity.quantity} items (was ${activity.oldQuantity})`;
+                case 'deleted':
+                    return `Deleted item (had ${activity.quantity} items)`;
+                default:
+                    return activity.type;
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function generateBarcode() {
+            const companyCode = appState.currentCompany?.code || 'INV';
+            const timestamp = Date.now().toString().slice(-6);
+            return `${companyCode}-${timestamp}`;
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            // Navigation
+            document.querySelectorAll('.nav-item, .sidebar-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const view = e.currentTarget.dataset.view;
+                    if (view) switchView(view);
+                });
+            });
+
+            // Filter tabs
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    const filter = e.target.dataset.filter;
+                    if (filter) {
+                        appState.currentFilter = filter;
+                        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                        e.target.classList.add('active');
+                        updateItemsList();
+                    }
+                });
+            });
+
+            // Search
+            document.getElementById('itemSearch')?.addEventListener('input', () => {
+                updateItemsList();
+            });
+
+            // Forms
+            document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                const errorDiv = document.getElementById('loginError');
+                
+                try {
+                    await login(email, password);
+                } catch (error) {
+                    errorDiv.textContent = error.message;
+                    errorDiv.style.display = 'block';
+                }
+            });
+
+            document.getElementById('addItemForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('newItemName').value;
+                const quantity = parseInt(document.getElementById('newItemQuantity').value);
+                
+                await createItem(name, quantity);
+                closeModal('addItemModal');
+                document.getElementById('addItemForm').reset();
+            });
+
+            // Picker search
+            document.getElementById('pickerSearch')?.addEventListener('input', (e) => {
+                updateItemPicker(e.target.value);
+            });
+
+            // Window resize
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    document.querySelector('.sidebar').style.display = 'flex';
+                } else {
+                    document.querySelector('.sidebar').style.display = 'none';
+                }
+            });
+        }
+
+        // View Management
+        function switchView(viewName) {
+            appState.currentView = viewName;
+            
+            // Update active states
+            document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+            document.querySelectorAll('.nav-item, .sidebar-item').forEach(item => item.classList.remove('active'));
+            
+            document.getElementById(`${viewName}-view`).classList.add('active');
+            document.querySelectorAll(`[data-view="${viewName}"]`).forEach(item => item.classList.add('active'));
+        }
+
+        // Modal Management
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Item Management
+        function showItemDetail(itemId) {
+            const item = appState.items.find(i => i.id === itemId);
+            if (!item) return;
+            
+            appState.selectedItem = item;
+            
+            document.getElementById('itemDetailName').textContent = item.name;
+            document.getElementById('itemDetailTitle').textContent = item.name;
+            document.getElementById('itemDetailStock').textContent = `Current Stock: ${item.quantity}`;
+            document.getElementById('itemDetailBarcode').textContent = item.barcode;
+            
+            const statusElement = document.getElementById('itemDetailStatus');
+            statusElement.textContent = getStockStatus(item);
+            statusElement.className = `stock-status ${getStockClass(item)}`;
+            
+            showModal('itemDetailModal');
+        }
+
+        function showAddItem() {
+            showModal('addItemModal');
+        }
+
+        async function createItem(name, quantity) {
+            const barcode = generateBarcode();
+            const newItem = {
+                id: Date.now().toString(),
+                name,
+                quantity,
+                barcode,
+                updatedAt: new Date().toISOString()
+            };
+            
+            appState.items.push(newItem);
+            
+            // Add activity
+            appState.activities.unshift({
+                id: Date.now().toString(),
+                itemName: name,
+                type: 'created',
+                quantity,
+                userName: appState.currentUser.name,
+                createdAt: new Date().toISOString()
+            });
+            
+            updateUI();
+        }
+
+        // Adjustment Functions
+        function setAdjustAction(action) {
+            appState.adjustAction = action;
+            document.querySelectorAll('#adjustRemove, #adjustAdd').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`adjust${action.charAt(0).toUpperCase() + action.slice(1)}`).classList.add('active');
+            
+            const performBtn = document.getElementById('performAdjust');
+            if (action === 'add') {
+                performBtn.innerHTML = '<i class="fas fa-plus"></i> Add Items';
+                performBtn.style.background = 'var(--success-color)';
+            } else {
+                performBtn.innerHTML = '<i class="fas fa-minus"></i> Remove Items';
+                performBtn.style.background = 'var(--danger-color)';
+            }
+        }
+
+        function changeAdjustQuantity(delta) {
+            appState.adjustQuantity = Math.max(1, appState.adjustQuantity + delta);
+            document.getElementById('adjustQuantity').textContent = appState.adjustQuantity;
+        }
+
+        function performAdjustment() {
+            if (!appState.selectedItem) return;
+            
+            const change = appState.adjustAction === 'add' ? appState.adjustQuantity : -appState.adjustQuantity;
+            const newQuantity = Math.max(0, appState.selectedItem.quantity + change);
+            
+            // Update item
+            const itemIndex = appState.items.findIndex(i => i.id === appState.selectedItem.id);
+            if (itemIndex !== -1) {
+                const oldQuantity = appState.items[itemIndex].quantity;
+                appState.items[itemIndex].quantity = newQuantity;
+                appState.items[itemIndex].updatedAt = new Date().toISOString();
+                
+                // Add activity
+                appState.activities.unshift({
+                    id: Date.now().toString(),
+                    itemName: appState.selectedItem.name,
+                    type: appState.adjustAction === 'add' ? 'added' : 'removed',
+                    quantity: appState.adjustQuantity,
+                    oldQuantity,
+                    userName: appState.currentUser.name,
+                    createdAt: new Date().toISOString()
+                });
+                
+                updateUI();
+                closeModal('itemDetailModal');
+            }
+        }
+
+        function performQuickAdjustment() {
+            if (!appState.selectedItem) return;
+            
+            const change = appState.selectedItem.quantity > 0 ? -1 : 1;
+            const newQuantity = Math.max(0, appState.selectedItem.quantity + change);
+            
+            // Update item
+            const itemIndex = appState.items.findIndex(i => i.id === appState.selectedItem.id);
+            if (itemIndex !== -1) {
+                const oldQuantity = appState.items[itemIndex].quantity;
+                appState.items[itemIndex].quantity = newQuantity;
+                appState.items[itemIndex].updatedAt = new Date().toISOString();
+                
+                // Add activity
+                appState.activities.unshift({
+                    id: Date.now().toString(),
+                    itemName: appState.selectedItem.name,
+                    type: change > 0 ? 'added' : 'removed',
+                    quantity: Math.abs(change),
+                    oldQuantity,
+                    userName: appState.currentUser.name,
+                    createdAt: new Date().toISOString()
+                });
+                
+                updateUI();
+            }
+        }
+
+        // Batch Operations
+        function showItemPicker() {
+            updateItemPicker();
+            showModal('itemPickerModal');
+        }
+
+        function updateItemPicker(searchTerm = '') {
+            const container = document.getElementById('pickerItemsList');
+            let filtered = appState.items;
+            
+            if (searchTerm) {
+                filtered = filtered.filter(item => 
+                    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    item.barcode.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+            }
+            
+            container.innerHTML = filtered.map(item => `
+                <div class="item-card" onclick="addItemToBatch('${item.id}')">
+                    <div class="item-info">
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-meta">
+                            <span class="item-barcode">${item.barcode}</span>
+                            <span>${item.quantity} in stock</span>
                         </div>
                     </div>
-
-                    {/* Main Content */}
-                    <div className="px-4 py-6">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center py-20">
-                                <div className="text-center">
-                                    <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                                    <p className="text-gray-600">Loading...</p>
-                                </div>
-                            </div>
-                        ) : currentView === 'items' ? (
-                            /* Items List View */
-                            <div className="space-y-6">
-                                {/* Header */}
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-gray-800">All Items</h2>
-                                            {items.length === 0 ? (
-                                                <p className="text-gray-600">No items in your inventory</p>
-                                            ) : (
-                                                <p className="text-gray-600">
-                                                    {items.length} items · {items.reduce((sum, item) => sum + item.quantity, 0)} total units
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={() => setShowBarcodeEntry(true)}
-                                                className="p-3 bg-purple-600 text-white rounded-xl ios-button"
-                                            >
-                                                <SearchIcon />
-                                            </button>
-                                            <button
-                                                onClick={() => setShowScanner(true)}
-                                                className="p-3 bg-purple-600 text-white rounded-xl ios-button"
-                                            >
-                                                <CameraIcon />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Search and Filter */}
-                                    <div className="space-y-3">
-                                        <div className="relative">
-                                            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                                            <input
-                                                type="text"
-                                                placeholder="Search items by name or barcode..."
-                                                value={itemsSearch}
-                                                onChange={(e) => setItemsSearch(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                            />
-                                        </div>
-                                        
-                                        <div className="flex bg-gray-200 rounded-xl p-1">
-                                            {[
-                                                { key: 'all', label: 'All Items' },
-                                                { key: 'lowStock', label: 'Low Stock' },
-                                                { key: 'outOfStock', label: 'Out of Stock' }
-                                            ].map(filter => (
-                                                <button
-                                                    key={filter.key}
-                                                    onClick={() => setItemsFilter(filter.key)}
-                                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                                                        itemsFilter === filter.key
-                                                            ? 'bg-white text-purple-600 shadow-sm'
-                                                            : 'text-gray-600'
-                                                    }`}
-                                                >
-                                                    {filter.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Items List */}
-                                {(() => {
-                                    const filteredItems = getFilteredItems();
-                                    
-                                    if (items.length === 0) {
-                                        return (
-                                            <div className="text-center py-20">
-                                                <PackageIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
-                                                <h3 className="text-xl font-medium text-gray-800 mb-2">No Items Yet</h3>
-                                                <p className="text-gray-600 mb-6">Start building your inventory by adding your first item</p>
-                                                <button
-                                                    onClick={() => setCurrentView('manage')}
-                                                    className="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 inline-flex items-center gap-2 ios-button"
-                                                >
-                                                    <PlusIcon />
-                                                    Add Your First Item
-                                                </button>
-                                            </div>
-                                        );
-                                    }
-
-                                    if (filteredItems.length === 0) {
-                                        return (
-                                            <div className="text-center py-12">
-                                                <SearchIcon className="mx-auto mb-4 w-16 h-16 text-gray-300" />
-                                                <h3 className="text-lg font-medium text-gray-800 mb-2">No Items Found</h3>
-                                                <p className="text-gray-600">
-                                                    {itemsSearch ? `No items match "${itemsSearch}"` : 
-                                                     itemsFilter === 'lowStock' ? 'No items are low in stock' :
-                                                     itemsFilter === 'outOfStock' ? 'No items are out of stock' :
-                                                     'Try adjusting your search or filter'}
-                                                </p>
-                                            </div>
-                                        );
-                                    }
-
-                                    return (
-                                        <div className="space-y-3">
-                                            {filteredItems.map((item) => (
-                                                <div key={item.id} className="bg-white rounded-xl p-4 card-shadow">
-                                                    <div className="flex items-center">
-                                                        <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
-                                                            <PackageIcon className="w-6 h-6 text-purple-600" />
-                                                        </div>
-                                                        
-                                                        <div className="flex-1">
-                                                            <h3 className="font-semibold text-gray-800">{item.name}</h3>
-                                                            <p className="text-sm text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded mt-1 inline-block">
-                                                                {item.barcode}
-                                                            </p>
-                                                            {item.updated_at && (
-                                                                <p className="text-xs text-gray-500 mt-1">
-                                                                    {formatDate(item.updated_at)}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        <div className="text-right">
-                                                            <div className={`text-lg font-bold ${
-                                                                item.quantity <= 0 ? 'text-red-600' : 
-                                                                item.quantity <= 5 ? 'text-orange-600' : 
-                                                                'text-green-600'
-                                                            }`}>
-                                                                {item.quantity}
-                                                            </div>
-                                                            <span className={`text-xs px-2 py-1 rounded-full ${
-                                                                item.quantity <= 0 ? 'bg-red-100 text-red-800' :
-                                                                item.quantity <= 5 ? 'bg-orange-100 text-orange-800' :
-                                                                'bg-green-100 text-green-800'
-                                                            }`}>
-                                                                {item.quantity <= 0 ? 'Out of Stock' :
-                                                                 item.quantity <= 5 ? 'Low Stock' :
-                                                                 'In Stock'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        ) : currentView === 'manage' ? (
-                            /* Inventory Management View */
-                            <div className="space-y-6">
-                                {/* Add Item Form */}
-                                {showAddForm && (
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold mb-4">Add New Item</h3>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Item Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={newItem.name}
-                                                    onChange={(e) => setNewItem({...newItem, name: e.target.value})}
-                                                    className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                    placeholder="Enter item name"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Initial Quantity</label>
-                                                <input
-                                                    type="number"
-                                                    value={newItem.quantity}
-                                                    onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
-                                                    className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                    min="1"
-                                                />
-                                            </div>
-                                            <div className="flex gap-3">
-                                                <button
-                                                    onClick={addItem}
-                                                    className="flex-1 bg-purple-600 text-white py-3 rounded-xl hover:bg-purple-700 ios-button"
-                                                >
-                                                    Create Item
-                                                </button>
-                                                <button
-                                                    onClick={() => setShowAddForm(false)}
-                                                    className="flex-1 bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={() => setShowAddForm(true)}
-                                        className="flex-1 bg-green-600 text-white py-4 rounded-xl hover:bg-green-700 flex items-center justify-center gap-2 ios-button"
-                                    >
-                                        <PlusIcon />
-                                        Add Item
-                                    </button>
-                                    <button
-                                        onClick={() => setShowScanner(true)}
-                                        className="flex-1 bg-purple-600 text-white py-4 rounded-xl hover:bg-purple-700 flex items-center justify-center gap-2 ios-button"
-                                    >
-                                        <CameraIcon />
-                                        Scan Item
-                                    </button>
-                                </div>
-
-                                {/* Items Grid */}
-                                {items.length === 0 ? (
-                                    <div className="text-center py-20">
-                                        <PackageIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
-                                        <h3 className="text-xl font-medium text-gray-800 mb-2">No items in inventory</h3>
-                                        <p className="text-gray-600">Add your first item to get started</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {items.map(item => (
-                                            <div key={item.id} className="item-card">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div className="flex-1">
-                                                        <h4 className="font-semibold text-lg text-gray-800">{item.name}</h4>
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            Quantity: <span className={item.quantity <= 5 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>{item.quantity}</span>
-                                                        </p>
-                                                        {item.updated_at && (
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                {formatDate(item.updated_at)}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => deleteItem(item.id)}
-                                                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg ios-button"
-                                                    >
-                                                        <TrashIcon />
-                                                    </button>
-                                                </div>
-                                                
-                                                <div className="bg-gray-50 p-3 rounded-xl border mb-4">
-                                                    <div className="text-center">
-                                                        <div className="font-mono text-sm mb-1">{item.barcode}</div>
-                                                        <div className="barcode-pattern h-8 w-full rounded"></div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center justify-center gap-4">
-                                                    <button
-                                                        onClick={() => updateQuantity(item.id, -1)}
-                                                        className="w-10 h-10 bg-red-100 text-red-600 rounded-full hover:bg-red-200 flex items-center justify-center ios-button"
-                                                        disabled={item.quantity <= 0}
-                                                    >
-                                                        <MinusIcon />
-                                                    </button>
-                                                    <span className="px-6 py-2 bg-gray-100 rounded-xl border font-semibold text-lg min-w-[4rem] text-center">
-                                                        {item.quantity}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => updateQuantity(item.id, 1)}
-                                                        className="w-10 h-10 bg-green-100 text-green-600 rounded-full hover:bg-green-200 flex items-center justify-center ios-button"
-                                                    >
-                                                        <PlusIcon />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ) : currentView === 'activity' ? (
-                            /* Activity Log View */
-                            <div className="space-y-6">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Activity Log</h2>
-                                    <p className="text-gray-600">Track all inventory changes</p>
-                                </div>
-                                
-                                {activities.length === 0 ? (
-                                    <div className="text-center py-20">
-                                        <ClockIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
-                                        <h3 className="text-xl font-medium text-gray-800 mb-2">No activity recorded yet</h3>
-                                        <p className="text-gray-600">Activity will appear here when you make changes</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {activities.map(activity => (
-                                            <div key={activity.id} className="bg-white rounded-xl p-4 card-shadow">
-                                                <div className="flex items-start gap-3">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                                        activity.type === 'created' ? 'bg-green-100 text-green-800' :
-                                                        activity.type === 'added' ? 'bg-blue-100 text-blue-800' :
-                                                        activity.type === 'removed' ? 'bg-orange-100 text-orange-800' :
-                                                        'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {activity.type.toUpperCase()}
-                                                    </span>
-                                                    
-                                                    <div className="flex-1">
-                                                        <h4 className="font-medium text-gray-800">{activity.item_name}</h4>
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            {activity.type === 'created' && `Created with initial quantity of ${activity.quantity}`}
-                                                            {activity.type === 'added' && `Added ${activity.quantity} items (was ${activity.old_quantity})`}
-                                                            {activity.type === 'removed' && `Removed ${activity.quantity} items (was ${activity.old_quantity})`}
-                                                            {activity.type === 'deleted' && `Deleted item (had ${activity.quantity} items)`}
-                                                        </p>
-                                                        {activity.created_at && activity.user_name && (
-                                                            <p className="text-xs text-gray-500 mt-2">
-                                                                By {activity.user_name} • {formatDate(activity.created_at)}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ) : currentView === 'team' ? (
-                            /* Team Management View (Admin Only) */
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-gray-800">Team Management</h2>
-                                        <p className="text-gray-600">Manage users and permissions</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowInviteUser(true)}
-                                        className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 flex items-center gap-2 ios-button"
-                                    >
-                                        <PlusIcon />
-                                        Invite User
-                                    </button>
-                                </div>
-
-                                {showInviteUser && (
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="font-semibold mb-4">Invite New User</h3>
-                                        <form onSubmit={handleInviteUser} className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Full Name"
-                                                    value={inviteForm.name}
-                                                    onChange={(e) => setInviteForm({...inviteForm, name: e.target.value})}
-                                                    className="p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                    required
-                                                />
-                                                <input
-                                                    type="email"
-                                                    placeholder="Email Address"
-                                                    value={inviteForm.email}
-                                                    onChange={(e) => setInviteForm({...inviteForm, email: e.target.value})}
-                                                    className="p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                    required
-                                                />
-                                            </div>
-                                            <div className="flex gap-3">
-                                                <select
-                                                    value={inviteForm.role}
-                                                    onChange={(e) => setInviteForm({...inviteForm, role: e.target.value})}
-                                                    className="flex-1 p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                >
-                                                    <option value="user">User</option>
-                                                    <option value="admin">Admin</option>
-                                                </select>
-                                                <button
-                                                    type="submit"
-                                                    className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 ios-button"
-                                                >
-                                                    Send Invite
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowInviteUser(false)}
-                                                    className="bg-gray-500 text-white px-6 py-3 rounded-xl hover:bg-gray-600 ios-button"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                )}
-
-                                {companyUsers.length === 0 ? (
-                                    <div className="text-center py-20">
-                                        <UsersIcon className="mx-auto mb-6 w-20 h-20 text-gray-300" />
-                                        <h3 className="text-xl font-medium text-gray-800 mb-2">No team members yet</h3>
-                                        <p className="text-gray-600">Invite users to join your team</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {companyUsers.map(u => (
-                                            <div key={u.id} className="bg-white rounded-xl p-4 card-shadow">
-                                                <div className="flex items-center">
-                                                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
-                                                        <UserIcon className="w-6 h-6 text-purple-600" />
-                                                    </div>
-                                                    
-                                                    <div className="flex-1">
-                                                        <h3 className="font-semibold text-gray-800">{u.name}</h3>
-                                                        <p className="text-sm text-gray-600">{u.email}</p>
-                                                        {u.created_at && (
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                Joined {formatDate(u.created_at)}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    
-                                                    <div className="text-right">
-                                                        <span className={`text-xs px-3 py-1 rounded-full ${
-                                                            u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                                                        }`}>
-                                                            {u.role === 'admin' ? 'Administrator' : 'User'}
-                                                        </span>
-                                                        {u.id !== user.id && (
-                                                            <button
-                                                                onClick={() => handleDeleteUser(u.id)}
-                                                                className="block text-red-600 hover:text-red-800 text-sm mt-2"
-                                                            >
-                                                                Remove
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ) : currentView === 'settings' ? (
-                            /* Settings View */
-                            <div className="space-y-6">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-gray-800">Settings</h2>
-                                </div>
-                                
-                                <div className="space-y-4">
-                                    {/* Company Information */}
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Company Information</h3>
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-gray-600">Company Name</span>
-                                                <span className="font-medium">{company?.name || 'N/A'}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-gray-600">Company Code</span>
-                                                <span className="font-mono font-medium">{company?.code || 'N/A'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Subscription */}
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Subscription</h3>
-                                        <div className="flex justify-between items-center mb-4">
-                                            <div>
-                                                <p className="font-medium">Current Plan: {company?.subscription_tier?.toUpperCase()}</p>
-                                                <p className="text-sm text-gray-600">
-                                                    {company?.subscription_tier === 'trial' && 'Free trial - Upgrade to unlock all features'}
-                                                    {company?.subscription_tier === 'pro' && 'Professional plan - Perfect for growing businesses'}
-                                                    {company?.subscription_tier === 'enterprise' && 'Enterprise plan - Unlimited everything'}
-                                                </p>
-                                            </div>
-                                            {company?.subscription_tier !== 'enterprise' && (
-                                                <button className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 ios-button">
-                                                    Upgrade Plan
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Account */}
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Account</h3>
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-gray-600">Name</span>
-                                                <span className="font-medium">{user?.name || 'N/A'}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-gray-600">Email</span>
-                                                <span className="font-medium">{user?.email || 'N/A'}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-gray-600">Role</span>
-                                                <span className="font-medium">{user?.role === 'admin' ? 'Administrator' : 'User'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Features */}
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Features</h3>
-                                        <div className="space-y-3">
-                                            {[
-                                                { icon: "∞", title: "Unlimited Inventory Items" },
-                                                { icon: "📷", title: "Barcode Scanning" },
-                                                { icon: "🕒", title: "Activity Tracking" },
-                                                { icon: "👥", title: "Multi-User Support" }
-                                            ].map((feature, index) => (
-                                                <div key={index} className="flex items-center gap-3">
-                                                    <span className="text-green-600 text-lg">{feature.icon}</span>
-                                                    <span className="text-gray-800">{feature.title}</span>
-                                                    <CheckIcon className="w-5 h-5 text-green-600 ml-auto" />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <button
-                                            onClick={() => {
-                                                if (confirm('Are you sure you want to sign out?')) {
-                                                    handleLogout();
-                                                }
-                                            }}
-                                            className="w-full flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 py-3 rounded-xl ios-button"
-                                        >
-                                            <LogOutIcon />
-                                            Sign Out
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
-
-                    {/* iOS Style Tab Bar */}
-                    <div className="fixed bottom-0 left-0 right-0 tab-bar px-4 py-2">
-                        <div className="flex justify-around">
-                            {[
-                                { key: 'items', label: 'Items', icon: ListIcon },
-                                { key: 'manage', label: 'Manage', icon: PackageIcon },
-                                { key: 'activity', label: 'Activity', icon: ClockIcon },
-                                ...(user?.role === 'admin' ? [{ key: 'team', label: 'Team', icon: UsersIcon }] : []),
-                                { key: 'settings', label: 'Settings', icon: GearIcon }
-                            ].map(tab => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setCurrentView(tab.key)}
-                                    className={`tab-item flex flex-col items-center py-2 px-3 rounded-lg ${
-                                        currentView === tab.key ? 'active' : 'text-gray-600'
-                                    }`}
-                                >
-                                    <tab.icon className="w-6 h-6 mb-1" />
-                                    <span className="text-xs font-medium">{tab.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Scanner Modal */}
-                    {showScanner && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                            <div className="bg-white p-6 rounded-3xl max-w-md mx-4 w-full">
-                                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                    <CameraIcon />
-                                    Scan Item Barcode
-                                </h3>
-                                
-                                <div className="mb-4">
-                                    <div className="bg-gray-100 rounded-2xl p-8 text-center">
-                                        <CameraIcon className="mx-auto mb-3 w-12 h-12 text-gray-400" />
-                                        <p className="text-gray-600 mb-4">Camera simulation not available in web version</p>
-                                        <p className="text-sm text-gray-500">Use manual barcode entry below</p>
-                                    </div>
-                                </div>
-
-                                <div className="mb-4 p-4 bg-gray-50 rounded-2xl">
-                                    <h4 className="font-medium text-gray-800 mb-2">Manual Barcode Entry</h4>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder={`Enter barcode (e.g., ${company?.code || 'INV'}-000001)`}
-                                            className="flex-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && e.target.value.trim()) {
-                                                    handleScannedBarcode(e.target.value.trim());
-                                                    e.target.value = '';
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            onClick={(e) => {
-                                                const input = e.target.previousElementSibling;
-                                                if (input.value.trim()) {
-                                                    handleScannedBarcode(input.value.trim());
-                                                    input.value = '';
-                                                }
-                                            }}
-                                            className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 ios-button"
-                                        >
-                                            Look Up
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={() => setShowScanner(false)}
-                                    className="w-full bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
-                                >
-                                    Close Scanner
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Barcode Entry Modal */}
-                    {showBarcodeEntry && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                            <div className="bg-white p-6 rounded-3xl max-w-md mx-4 w-full">
-                                <h3 className="text-lg font-semibold mb-4">Search by Barcode</h3>
-                                
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Barcode
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder={`e.g., ${company?.code || 'INV'}-000001`}
-                                        className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && e.target.value.trim()) {
-                                                handleScannedBarcode(e.target.value.trim());
-                                                e.target.value = '';
-                                            }
-                                        }}
-                                    />
-                                </div>
-
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={(e) => {
-                                            const input = e.target.parentElement.previousElementSibling.querySelector('input');
-                                            if (input.value.trim()) {
-                                                handleScannedBarcode(input.value.trim());
-                                                input.value = '';
-                                            }
-                                        }}
-                                        className="flex-1 bg-purple-600 text-white py-3 rounded-xl hover:bg-purple-700 ios-button"
-                                    >
-                                        Look Up
-                                    </button>
-                                    <button
-                                        onClick={() => setShowBarcodeEntry(false)}
-                                        className="flex-1 bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Item Detail Modal */}
-                    {showItemDetail && selectedItem && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                            <div className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                                <div className="p-6">
-                                    <div className="text-center mb-6">
-                                        <PackageIcon className="mx-auto mb-4 w-16 h-16 text-purple-600" />
-                                        <h3 className="text-xl font-bold text-gray-800">{selectedItem.name}</h3>
-                                        <p className="text-gray-600">Current Stock: <span className={selectedItem.quantity <= 5 ? 'text-orange-600' : 'text-green-600'}>{selectedItem.quantity}</span></p>
-                                    </div>
-
-                                    <div className="mb-6 p-4 bg-gray-50 rounded-2xl">
-                                        <div className="text-center">
-                                            <p className="text-sm text-gray-600 mb-2">Barcode</p>
-                                            <p className="font-mono text-lg font-semibold mb-2">{selectedItem.barcode}</p>
-                                            <div className="barcode-pattern h-12 w-full rounded"></div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="text-center">
-                                            <p className="font-medium text-gray-800 mb-4">Adjust Inventory</p>
-                                            
-                                            <div className="flex bg-gray-200 rounded-xl p-1 mb-4">
-                                                <button
-                                                    onClick={() => setAdjustAction('remove')}
-                                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                                                        adjustAction === 'remove'
-                                                            ? 'bg-white text-red-600 shadow-sm'
-                                                            : 'text-gray-600'
-                                                    }`}
-                                                >
-                                                    Remove
-                                                </button>
-                                                <button
-                                                    onClick={() => setAdjustAction('add')}
-                                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                                                        adjustAction === 'add'
-                                                            ? 'bg-white text-green-600 shadow-sm'
-                                                            : 'text-gray-600'
-                                                    }`}
-                                                >
-                                                    Add
-                                                </button>
-                                            </div>
-
-                                            <div className="flex items-center justify-center gap-4 mb-6">
-                                                <button 
-                                                    onClick={() => setAdjustQuantity(Math.max(1, adjustQuantity - 1))}
-                                                    className="w-10 h-10 bg-gray-200 rounded-full hover:bg-gray-300 flex items-center justify-center ios-button"
-                                                >
-                                                    <MinusIcon />
-                                                </button>
-                                                <span className="px-6 py-2 bg-gray-100 rounded-xl font-semibold text-xl min-w-[4rem] text-center">{adjustQuantity}</span>
-                                                <button 
-                                                    onClick={() => setAdjustQuantity(adjustQuantity + 1)}
-                                                    className="w-10 h-10 bg-gray-200 rounded-full hover:bg-gray-300 flex items-center justify-center ios-button"
-                                                >
-                                                    <PlusIcon />
-                                                </button>
-                                            </div>
-                                            
-                                            <button
-                                                onClick={async () => {
-                                                    const change = adjustAction === 'add' ? adjustQuantity : -adjustQuantity;
-                                                    await updateQuantity(selectedItem.id, change);
-                                                    setSelectedItem(null);
-                                                    setShowItemDetail(false);
-                                                    setAdjustQuantity(1);
-                                                    setAdjustAction('remove');
-                                                }}
-                                                disabled={adjustAction === 'remove' && adjustQuantity > selectedItem.quantity}
-                                                className={`w-full py-4 rounded-xl font-semibold ios-button ${
-                                                    adjustAction === 'add' 
-                                                        ? 'bg-green-600 text-white hover:bg-green-700' 
-                                                        : 'bg-red-600 text-white hover:bg-red-700'
-                                                } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                            >
-                                                {adjustAction === 'add' ? 'Add Items' : 'Remove Items'}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={() => {
-                                            setSelectedItem(null);
-                                            setShowItemDetail(false);
-                                            setAdjustQuantity(1);
-                                            setAdjustAction('remove');
-                                        }}
-                                        className="w-full mt-4 bg-gray-500 text-white py-3 rounded-xl hover:bg-gray-600 ios-button"
-                                    >
-                                        Done
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
-            );
-        };
+            `).join('');
+        }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(InventorySystem));
+        function addItemToBatch(itemId) {
+            const item = appState.items.find(i => i.id === itemId);
+            if (!item) return;
+            
+            // Check if already in batch
+            if (appState.batchItems.find(bi => bi.item.id === itemId)) {
+                closeModal('itemPickerModal');
+                return;
+            }
+            
+            appState.batchItems.push({
+                item,
+                quantityChange: 1,
+                action: 'add'
+            });
+            
+            updateBatchItems();
+            closeModal('itemPickerModal');
+        }
 
-        console.log('🎯 iOS-Style Inventory Pro System loaded successfully!');
+        function removeBatchItem(index) {
+            appState.batchItems.splice(index, 1);
+            updateBatchItems();
+        }
+
+        function setBatchAction(index, action) {
+            appState.batchItems[index].action = action;
+            updateBatchItems();
+        }
+
+        function setBatchQuantity(index, quantity) {
+            appState.batchItems[index].quantityChange = Math.max(0, parseInt(quantity) || 0);
+        }
+
+        async function processBatchOperation() {
+            const sessionTitle = document.getElementById('sessionTitle').value;
+            if (!sessionTitle || appState.batchItems.length === 0) return;
+            
+            // Process each item
+            appState.batchItems.forEach(batchItem => {
+                const change = batchItem.action === 'add' ? batchItem.quantityChange : -batchItem.quantityChange;
+                const itemIndex = appState.items.findIndex(i => i.id === batchItem.item.id);
+                
+                if (itemIndex !== -1) {
+                    const oldQuantity = appState.items[itemIndex].quantity;
+                    appState.items[itemIndex].quantity = Math.max(0, oldQuantity + change);
+                    appState.items[itemIndex].updatedAt = new Date().toISOString();
+                    
+                    // Add activity
+                    appState.activities.unshift({
+                        id: Date.now().toString(),
+                        itemName: batchItem.item.name,
+                        type: batchItem.action === 'add' ? 'added' : 'removed',
+                        quantity: batchItem.quantityChange,
+                        oldQuantity,
+                        userName: appState.currentUser.name,
+                        createdAt: new Date().toISOString(),
+                        sessionTitle
+                    });
+                }
+            });
+            
+            // Reset batch
+            appState.batchItems = [];
+            document.getElementById('sessionTitle').value = '';
+            
+            updateUI();
+            alert('Operation processed successfully!');
+        }
+
+        // Barcode Functions
+        function showBarcodeSearch() {
+            showModal('barcodeSearchModal');
+        }
+
+        function searchByBarcode() {
+            const barcode = document.getElementById('manualBarcode').value.trim();
+            if (!barcode) return;
+            
+            const item = appState.items.find(i => i.barcode === barcode);
+            if (item) {
+                closeModal('barcodeSearchModal');
+                showItemDetail(item.id);
+            } else {
+                alert('Item not found');
+            }
+        }
+
+        function simulateBarcodeScan() {
+            // Simulate scanning a random item
+            if (appState.items.length > 0) {
+                const randomItem = appState.items[Math.floor(Math.random() * appState.items.length)];
+                showItemDetail(randomItem.id);
+            } else {
+                alert('No items available to scan');
+            }
+        }
+
+        // Team Management
+        function showInviteGenerator() {
+            showModal('inviteModal');
+        }
+
+        function selectRole(role) {
+            appState.inviteRole = role;
+            document.querySelectorAll('#roleUser, #roleAdmin').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`role${role.charAt(0).toUpperCase() + role.slice(1)}`).classList.add('active');
+        }
+
+        function generateInviteLink() {
+            const link = `https://your-app.com/invite/${Date.now()}?role=${appState.inviteRole}`;
+            document.getElementById('generatedLink').textContent = link;
+            document.getElementById('inviteGenerated').style.display = 'block';
+            document.getElementById('generateInvite').style.display = 'none';
+        }
+
+        function copyInviteLink() {
+            const link = document.getElementById('generatedLink').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                alert('Link copied to clipboard!');
+            });
+        }
+
+        // Settings
+        function showLowStockSettings() {
+            // This would open a settings modal
+            const newThreshold = prompt('Enter new default low stock threshold:', appState.currentCompany?.lowStockThreshold || 5);
+            if (newThreshold && !isNaN(newThreshold)) {
+                appState.currentCompany.lowStockThreshold = parseInt(newThreshold);
+                localStorage.setItem('currentCompany', JSON.stringify(appState.currentCompany));
+                updateSettings();
+            }
+        }
+
+        function showLogoutConfirm() {
+            if (confirm('Are you sure you want to sign out?')) {
+                logout();
+            }
+        }
+
+        function showItemActivity() {
+            // This would show item-specific activity log
+            alert('Item activity log would be shown here');
+        }
     </script>
 </body>
 </html>
