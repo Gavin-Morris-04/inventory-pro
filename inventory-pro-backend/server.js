@@ -348,6 +348,9 @@ app.post('/api/items', authenticateToken, async (req, res) => {
       }
     });
     
+message: 'Inventory Pro API - GitHub Auto-Deploy Test!',
+
+
     // Log activity
     await prisma.activity.create({
       data: {
