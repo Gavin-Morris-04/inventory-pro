@@ -21,6 +21,7 @@ model Company {
   users      User[]
   items      Item[]
   activities Activity[]
+  invites    Invite[]  // New relation
 
   @@map("companies")
 }
@@ -40,6 +41,7 @@ model User {
   // Relations
   company    Company    @relation(fields: [company_id], references: [id], onDelete: Cascade)
   activities Activity[]
+  invites    Invite[]   // New relation for invites sent by this user
 
   @@map("users")
 }
@@ -80,4 +82,23 @@ model Activity {
   user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("activities")
+}
+
+// NEW: Invite model for team member invitations
+model Invite {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  company_id  String
+  inviter_id  String
+  role        String   // "user" or "admin"
+  expires_at  DateTime
+  used        Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  inviter User    @relation(fields: [inviter_id], references: [id], onDelete: Cascade)
+
+  @@map("invites")
 }

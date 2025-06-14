@@ -61,7 +61,8 @@ app.get('/', (req, res) => {
       login: '/api/auth/login',
       register: '/api/companies/register',
       items: '/api/items',
-      activities: '/api/activities'
+      activities: '/api/activities',
+      invites: '/api/invites'
     }
   });
 });
@@ -724,9 +725,9 @@ app.get('/api/users', authenticateToken, async (req, res) => {
   }
 });
 
-// NEW INVITE SYSTEM ENDPOINTS
+// INVITE SYSTEM ENDPOINTS
 
-// Generate invite link (UPDATED)
+// Generate invite link
 app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -757,7 +758,7 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
 
     // Create frontend URL
     const frontendUrl = process.env.FRONTEND_URL || 'https://gavin-morris-04.github.io';
-    const inviteUrl = `${frontendUrl}/invite/${token}`;
+    const inviteUrl = `${frontendUrl}/inventorypro-website/invite/${token}`;
 
     console.log('✅ Invite link generated:', inviteUrl);
 
@@ -775,7 +776,7 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
   }
 });
 
-// Get invite details (NEW)
+// Get invite details
 app.get('/api/invites/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -788,7 +789,9 @@ app.get('/api/invites/:token', async (req, res) => {
       },
       include: { 
         company: true, 
-        inviter: true 
+        inviter: { 
+          select: { name: true } // Only select name for security
+        }
       }
     });
     
@@ -809,7 +812,7 @@ app.get('/api/invites/:token', async (req, res) => {
   }
 });
 
-// Accept invite (UPDATED)
+// Accept invite
 app.post('/api/users/accept-invite', async (req, res) => {
   try {
     const { token, name, email, password } = req.body;
@@ -898,7 +901,7 @@ app.post('/api/users/accept-invite', async (req, res) => {
         max_users: invite.company.max_users,
         low_stock_threshold: invite.company.low_stock_threshold
       },
-      authToken
+      token: authToken // Use 'token' instead of 'authToken' to match frontend expectations
     });
     
   } catch (error) {
@@ -1057,6 +1060,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️  Database: Connected to Railway PostgreSQL`);
   console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔗 Invite system: ENABLED`);
 });
 
 // Handle server errors
