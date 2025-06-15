@@ -758,7 +758,7 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
 
     // Create frontend URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://www.inventoryprotracker.com';
-    const inviteUrl = `${frontendUrl}/inventorypro-website/invite/${token}`;
+    const inviteUrl = `${frontendUrl}/inventorypro-website/?token=${token}`;
 
     console.log('✅ Invite link generated:', inviteUrl);
 
