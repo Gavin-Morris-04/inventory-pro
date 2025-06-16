@@ -792,7 +792,7 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
 
     // Create frontend URL that matches your existing invite.html structure
     const frontendUrl = process.env.FRONTEND_URL || 'https://gavin-morris-04.github.io';
-    const inviteUrl = `${frontendUrl}/inventorypro-website/invite.html?token=${token}`;
+    const inviteUrl = `${frontendUrl}/inventorypro-website/index.html?token=${token}`;
 
     console.log('✅ Invite link generated:', inviteUrl);
 
