@@ -23,14 +23,29 @@ app.use(cors({
     ? [
         process.env.FRONTEND_URL, 
         /\.railway\.app$/, 
-        'http://www.inventoryprotracker.com',
+        'https://gavin-morris-04.github.io',
         /\.netlify\.app$/,
         /\.github\.io$/,
+        'https://inventoryprotracker.com',
+        'http://inventoryprotracker.com',
+        'https://www.inventoryprotracker.com',
+        'http://www.inventoryprotracker.com',
         'null'
       ] 
-    : ['http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:3000', 'null'],
-  credentials: true
+    : [
+        'http://localhost:3000', 
+        'http://localhost:8080', 
+        'http://127.0.0.1:3000',
+        'https://gavin-morris-04.github.io',
+        'null'
+      ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -76,6 +91,25 @@ app.get('/api/health/db', async (req, res) => {
     console.error('Database connection error:', error);
     res.status(500).json({ 
       database: 'disconnected', 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Invite system health check
+app.get('/api/health/invites', async (req, res) => {
+  try {
+    const inviteCount = await prisma.invite.count();
+    res.json({ 
+      invites: 'working', 
+      count: inviteCount,
+      timestamp: new Date().toISOString() 
+    });
+  } catch (error) {
+    console.error('Invite system health check error:', error);
+    res.status(500).json({ 
+      invites: 'error', 
       error: error.message,
       timestamp: new Date().toISOString()
     });
@@ -756,9 +790,9 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
       }
     });
 
-    // Create frontend URL
-    const frontendUrl = process.env.FRONTEND_URL || 'http://www.inventoryprotracker.com';
-    const inviteUrl = `${frontendUrl}/inventorypro-website/invite/${token}`;
+    // Create frontend URL that matches your existing invite.html structure
+    const frontendUrl = process.env.FRONTEND_URL || 'https://gavin-morris-04.github.io';
+    const inviteUrl = `${frontendUrl}/inventorypro-website/invite.html?token=${token}`;
 
     console.log('✅ Invite link generated:', inviteUrl);
 
@@ -776,7 +810,43 @@ app.post('/api/users/generate-invite', authenticateToken, async (req, res) => {
   }
 });
 
-// Get invite details
+// Validate invite token (NEW ENDPOINT for invite.html)
+app.get('/api/users/validate-invite/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    const invite = await prisma.invite.findFirst({
+      where: { 
+        token, 
+        used: false, 
+        expires_at: { gt: new Date() } 
+      },
+      include: { 
+        company: true, 
+        inviter: { 
+          select: { name: true } // Only select name for security
+        }
+      }
+    });
+    
+    if (!invite) {
+      return res.status(404).json({ error: 'Invitation not found or expired' });
+    }
+    
+    res.json({
+      company_name: invite.company.name,
+      inviter_name: invite.inviter.name,
+      role: invite.role,
+      expires_at: invite.expires_at.toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Validate invite error:', error);
+    res.status(500).json({ error: 'Failed to validate invitation' });
+  }
+});
+
+// Get invite details (legacy endpoint)
 app.get('/api/invites/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -812,7 +882,7 @@ app.get('/api/invites/:token', async (req, res) => {
   }
 });
 
-// Accept invite
+// Accept invite (UPDATED to return authToken)
 app.post('/api/users/accept-invite', async (req, res) => {
   try {
     const { token, name, email, password } = req.body;
@@ -901,7 +971,7 @@ app.post('/api/users/accept-invite', async (req, res) => {
         max_users: invite.company.max_users,
         low_stock_threshold: invite.company.low_stock_threshold
       },
-      token: authToken // Use 'token' instead of 'authToken' to match frontend expectations
+      authToken: authToken // This is what invite.html expects
     });
     
   } catch (error) {
