@@ -1084,13 +1084,15 @@ app.delete('/api/users/delete', authenticateToken, async (req, res) => {
 
     const { userId, confirmationText } = req.body;
     
+    console.log('🗑️ Admin delete user request:', { userId, confirmationText, adminId: req.user.id });
+    
     if (!userId || !confirmationText) {
       return res.status(400).json({ error: 'User ID and confirmation text are required' });
     }
 
-    // Don't allow deleting yourself
+    // Don't allow deleting yourself through admin endpoint
     if (userId === req.user.id) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
+      return res.status(400).json({ error: 'Cannot delete your own account through admin endpoint. Use self-delete instead.' });
     }
 
     // Check if user exists and belongs to the same company
@@ -1107,6 +1109,11 @@ app.delete('/api/users/delete', authenticateToken, async (req, res) => {
 
     // Validate confirmation text
     const expectedText = `I am sure I want to delete ${userToDelete.name}`;
+    console.log('🔍 Comparing confirmation text:');
+    console.log('Expected:', expectedText);
+    console.log('Received:', confirmationText);
+    console.log('Match:', confirmationText === expectedText);
+    
     if (confirmationText !== expectedText) {
       return res.status(400).json({ error: 'Confirmation text does not match' });
     }
@@ -1128,7 +1135,7 @@ app.delete('/api/users/delete', authenticateToken, async (req, res) => {
       });
     });
 
-    console.log('✅ User permanently deleted:', userToDelete.email);
+    console.log('✅ User permanently deleted by admin:', userToDelete.email);
 
     res.json({ success: true });
 
@@ -1143,12 +1150,20 @@ app.delete('/api/users/delete-self', authenticateToken, async (req, res) => {
   try {
     const { confirmationText } = req.body;
     
+    console.log('🗑️ Self delete account request from user:', req.user.id, req.user.name);
+    console.log('🔍 Confirmation text received:', confirmationText);
+    
     if (!confirmationText) {
       return res.status(400).json({ error: 'Confirmation text is required' });
     }
 
     // Validate confirmation text
     const expectedText = `I am sure I want to delete my account`;
+    console.log('🔍 Comparing self-delete confirmation text:');
+    console.log('Expected:', expectedText);
+    console.log('Received:', confirmationText);
+    console.log('Match:', confirmationText === expectedText);
+    
     if (confirmationText !== expectedText) {
       return res.status(400).json({ error: 'Confirmation text does not match' });
     }
@@ -1162,6 +1177,8 @@ app.delete('/api/users/delete-self', authenticateToken, async (req, res) => {
           isActive: true
         }
       });
+
+      console.log('🔍 Admin count check:', adminCount);
 
       if (adminCount <= 1) {
         return res.status(400).json({ 
