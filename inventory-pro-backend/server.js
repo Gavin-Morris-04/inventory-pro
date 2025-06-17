@@ -1121,6 +1121,137 @@ const gracefulShutdown = async (signal) => {
   }
 };
 
+// Add this new endpoint to your server.js file, after the existing user deletion endpoint
+
+// Delete company (Admin only) - DANGEROUS OPERATION
+app.delete('/api/companies/delete', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { companyId, confirmationText } = req.body;
+    
+    if (!companyId || !confirmationText) {
+      return res.status(400).json({ error: 'Company ID and confirmation text are required' });
+    }
+
+    // Verify the company ID matches the user's company
+    if (companyId !== req.user.company_id) {
+      return res.status(403).json({ error: 'Cannot delete a different company' });
+    }
+
+    // Verify confirmation text
+    const expectedText = `I am sure I want to delete ${req.user.company.name}`;
+    if (confirmationText !== expectedText) {
+      return res.status(400).json({ error: 'Confirmation text does not match' });
+    }
+
+    console.log(`🗑️ DANGER: Admin ${req.user.email} is deleting company: ${req.user.company.name}`);
+
+    // Delete company and all associated data in transaction
+    await prisma.$transaction(async (prisma) => {
+      // Delete all activities
+      await prisma.activity.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Delete all items
+      await prisma.item.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Delete all invites
+      await prisma.invite.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Delete all users
+      await prisma.user.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Finally delete the company
+      await prisma.company.delete({
+        where: { id: companyId }
+      });
+    });
+
+    console.log(`✅ Company deleted: ${req.user.company.name}`);
+
+    res.json({ success: true, message: 'Company and all associated data deleted successfully' });
+
+  } catch (error) {
+    console.error('❌ Delete company error:', error);
+    res.status(500).json({ error: 'Failed to delete company' });
+  }
+});
+
+// Permanently delete user (Admin only) - UPDATED to require confirmation
+app.delete('/api/users/delete-permanent', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { userId, confirmationText } = req.body;
+    
+    if (!userId || !confirmationText) {
+      return res.status(400).json({ error: 'User ID and confirmation text are required' });
+    }
+
+    // Don't allow deleting yourself
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Check if user exists and belongs to the same company
+    const userToDelete = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        company_id: req.user.company_id 
+      }
+    });
+
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify confirmation text
+    const expectedText = `I am sure I want to delete ${userToDelete.name}`;
+    if (confirmationText !== expectedText) {
+      return res.status(400).json({ error: 'Confirmation text does not match' });
+    }
+
+    console.log(`🗑️ Admin ${req.user.email} is permanently deleting user: ${userToDelete.email}`);
+
+    // Permanently delete user and reassign their activities
+    await prisma.$transaction(async (prisma) => {
+      // Update activities to remove user reference but keep the activity
+      await prisma.activity.updateMany({
+        where: { user_id: userId },
+        data: { 
+          user_id: req.user.id, // Reassign to the admin who deleted them
+          user_name: `${userToDelete.name} (deleted by ${req.user.name})`
+        }
+      });
+
+      // Delete the user
+      await prisma.user.delete({
+        where: { id: userId }
+      });
+    });
+
+    console.log(`✅ User permanently deleted: ${userToDelete.email}`);
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('❌ Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
