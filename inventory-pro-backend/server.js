@@ -654,6 +654,56 @@ app.get('/api/activities/item/:itemId', authenticateToken, async (req, res) => {
   }
 });
 
+// Get activities for specific user (NEW ENDPOINT)
+app.get('/api/activities/user/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Only admins can view other users' activities, or users can view their own
+    if (req.user.role !== 'admin' && req.user.id !== userId) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    // Verify the user belongs to the same company
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        company_id: req.user.company_id
+      }
+    });
+    
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const activities = await prisma.activity.findMany({
+      where: { 
+        company_id: req.user.company_id,
+        user_id: userId
+      },
+      orderBy: { created_at: 'desc' },
+      take: 100
+    });
+    
+    const formattedActivities = activities.map(activity => ({
+      id: activity.id,
+      type: activity.type,
+      quantity: activity.quantity,
+      old_quantity: activity.old_quantity,
+      item_name: activity.item_name,
+      user_name: activity.user_name,
+      created_at: activity.created_at.toISOString(),
+      session_title: activity.session_title,
+      item_id: activity.item_id
+    }));
+    
+    res.json(formattedActivities);
+  } catch (error) {
+    console.error('❌ Get user activities error:', error);
+    res.status(500).json({ error: 'Failed to fetch user activities' });
+  }
+});
+
 // Create batch activity
 app.post('/api/activities/batch', authenticateToken, async (req, res) => {
   try {
@@ -719,7 +769,7 @@ app.post('/api/activities/batch', authenticateToken, async (req, res) => {
   }
 });
 
-// USERS ENDPOINTS (Admin only)
+// USERS ENDPOINTS
 
 // Get users
 app.get('/api/users', authenticateToken, async (req, res) => {
@@ -756,6 +806,51 @@ app.get('/api/users', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Get users error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get specific user details (NEW ENDPOINT)
+app.get('/api/users/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Only admins can view other users' details, or users can view their own
+    if (req.user.role !== 'admin' && req.user.id !== userId) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        company_id: req.user.company_id
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        last_login: true,
+        created_at: true
+      }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      isActive: user.isActive,
+      lastLogin: user.last_login?.toISOString(),
+      created_at: user.created_at.toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Get user details error:', error);
+    res.status(500).json({ error: 'Failed to fetch user details' });
   }
 });
 
@@ -980,17 +1075,17 @@ app.post('/api/users/accept-invite', async (req, res) => {
   }
 });
 
-// Delete user (Admin only)
+// Delete user (Admin only) - UPDATED with confirmation text
 app.delete('/api/users/delete', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    const { userId } = req.body;
+    const { userId, confirmationText } = req.body;
     
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
+    if (!userId || !confirmationText) {
+      return res.status(400).json({ error: 'User ID and confirmation text are required' });
     }
 
     // Don't allow deleting yourself
@@ -1010,19 +1105,95 @@ app.delete('/api/users/delete', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Soft delete by setting isActive to false
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isActive: false }
+    // Validate confirmation text
+    const expectedText = `I am sure I want to delete ${userToDelete.name}`;
+    if (confirmationText !== expectedText) {
+      return res.status(400).json({ error: 'Confirmation text does not match' });
+    }
+
+    // Permanently delete user and reassign their activities to the admin
+    await prisma.$transaction(async (prisma) => {
+      // Update all activities to reassign them to the current admin
+      await prisma.activity.updateMany({
+        where: { user_id: userId },
+        data: { 
+          user_name: `${userToDelete.name} (account deleted by ${req.user.name})`,
+          user_id: req.user.id
+        }
+      });
+
+      // Delete the user
+      await prisma.user.delete({
+        where: { id: userId }
+      });
     });
 
-    console.log('✅ User deleted:', userToDelete.email);
+    console.log('✅ User permanently deleted:', userToDelete.email);
 
     res.json({ success: true });
 
   } catch (error) {
     console.error('❌ Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Delete own account (NEW ENDPOINT)
+app.delete('/api/users/delete-self', authenticateToken, async (req, res) => {
+  try {
+    const { confirmationText } = req.body;
+    
+    if (!confirmationText) {
+      return res.status(400).json({ error: 'Confirmation text is required' });
+    }
+
+    // Validate confirmation text
+    const expectedText = `I am sure I want to delete my account`;
+    if (confirmationText !== expectedText) {
+      return res.status(400).json({ error: 'Confirmation text does not match' });
+    }
+
+    // Check if user is the only admin
+    if (req.user.role === 'admin') {
+      const adminCount = await prisma.user.count({
+        where: {
+          company_id: req.user.company_id,
+          role: 'admin',
+          isActive: true
+        }
+      });
+
+      if (adminCount <= 1) {
+        return res.status(400).json({ 
+          error: 'Cannot delete account. You are the only administrator. Please promote another user to admin first or delete the entire company.' 
+        });
+      }
+    }
+
+    // Permanently delete user account
+    await prisma.$transaction(async (prisma) => {
+      // Update all activities to mark them as from deleted user
+      await prisma.activity.updateMany({
+        where: { user_id: req.user.id },
+        data: { 
+          user_name: `${req.user.name} (account deleted)`,
+          user_id: null
+        }
+      });
+
+      // Delete the user
+      await prisma.user.delete({
+        where: { id: req.user.id }
+      });
+    });
+
+    console.log('✅ User deleted their own account:', req.user.email);
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('❌ Delete self error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
   }
 });
 
@@ -1086,6 +1257,79 @@ app.put('/api/companies/threshold', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Update company threshold error:', error);
     res.status(500).json({ error: 'Failed to update company threshold' });
+  }
+});
+
+// Delete company (UPDATED with confirmation text)
+app.delete('/api/companies/delete', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { companyId, confirmationText } = req.body;
+    
+    if (!companyId || !confirmationText) {
+      return res.status(400).json({ error: 'Company ID and confirmation text are required' });
+    }
+
+    // Verify company belongs to user
+    if (companyId !== req.user.company_id) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Validate confirmation text
+    const expectedText = `I am sure I want to delete ${company.name}`;
+    if (confirmationText !== expectedText) {
+      return res.status(400).json({ error: 'Confirmation text does not match' });
+    }
+
+    // Delete company and all associated data
+    await prisma.$transaction(async (prisma) => {
+      // Delete all activities
+      await prisma.activity.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Delete all items
+      await prisma.item.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Delete all invites
+      await prisma.invite.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Delete all users
+      await prisma.user.deleteMany({
+        where: { company_id: companyId }
+      });
+
+      // Delete the company
+      await prisma.company.delete({
+        where: { id: companyId }
+      });
+    });
+
+    console.log('✅ Company permanently deleted:', company.name);
+
+    res.json({ 
+      success: true,
+      message: 'Company and all associated data have been permanently deleted'
+    });
+
+  } catch (error) {
+    console.error('❌ Delete company error:', error);
+    res.status(500).json({ error: 'Failed to delete company' });
   }
 });
 
